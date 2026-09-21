@@ -21,6 +21,21 @@ jobs:
           gradle-version: "8.10.2"
       - name: Assemble debug APK
         run: gradle :app:assembleDebug --stacktrace
+      - name: Native APK smoke test
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          test -f "$APK"
+          echo "APK size: $(stat -c%s "$APK") bytes"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt2" dump badging "$APK" | tee /tmp/badging.txt
+          grep -q "package: name='com.example.viaggionapoli'" /tmp/badging.txt
+          grep -q "launchable-activity" /tmp/badging.txt
+          if unzip -l "$APK" | grep -Eq '(^|/)index\.html$|android_asset'; then
+            echo "ERROR: legacy WebView/HTML asset detected in native APK"
+            exit 1
+          fi
+          echo "Native APK smoke test passed."
       - uses: actions/upload-artifact@v4
         with:
           name: viaggio-napoli-v3-debug
