@@ -4,7 +4,7 @@
 <meta content="width=device-width,initial-scale=1,viewport-fit=cover" name="viewport"/>
 <meta content="#0b2b40" name="theme-color"/>
 <meta content="Viaggio Napoli 2026 · v2.2" name="application-name"/>
-<title>Viaggio a Napoli · 21–28 settembre 2026 · v2.2</title>
+<title>Viaggio a Napoli · v2.2</title>
 <style>
 :root{
   --navy:#0e2940; --navy2:#123a59; --sky:#1e78d7; --sky2:#eaf4ff;
@@ -142,12 +142,6 @@ main{padding:16px 0 78px}
 @media(min-width:720px){.now-row{grid-template-columns:repeat(4,1fr)}.quick-grid{grid-template-columns:repeat(4,1fr)}.emergency-grid{grid-template-columns:repeat(4,1fr)}}
 
 
-.fav-btn{transition:all .15s ease}.fav-btn.saved{background:#fff0f1;color:#b52d38;border-color:#efc4c9}
-.favorite-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
-.favorite-item{background:#fff;border:1px solid var(--line);border-radius:15px;padding:11px}
-.favorite-item b{display:block;color:var(--navy);font-size:12px}.favorite-item span{display:block;color:var(--muted);font-size:9px;margin-top:3px}
-@media(max-width:500px){.favorite-list{grid-template-columns:1fr}}
-
 .meals-card{background:linear-gradient(180deg,#fff 0%,#fbfcfe 100%)}
 .meal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
 .meal-head p{margin:3px 0 0;color:var(--muted);font-size:10px}
@@ -193,6 +187,42 @@ body{background:radial-gradient(circle at 18% -10%,rgba(36,136,255,.11),transpar
 @media(max-width:560px){.hero{min-height:285px}.hero h2{font-size:30px}.home-launch strong{font-size:19px}.scene-ribbon{padding:9px}.scene-index{font-size:19px}}
 /* v2.0 Samsung UX + contrast pass */
 /* v2.1 UX pass · Samsung home + live updates */
+/* v2.2 S23 compact pass */
+body{overflow-x:hidden;padding-bottom:0}
+.top{padding-top:var(--native-top);z-index:90}
+.top-shell{min-height:62px;padding:8px 12px}
+.top-context{gap:5px}
+.version-chip,.today-chip{padding:6px 8px;font-size:8px}
+.wrap{max-width:100%;padding-left:12px;padding-right:12px}
+main{padding-top:12px;padding-bottom:calc(104px + var(--native-bottom))}
+.hero{min-height:245px;border-radius:20px}
+.hero-copy{left:15px;right:15px;bottom:14px}
+.hero h2{font-size:29px}
+.card{padding:13px;border-radius:19px;margin:9px 0}
+.card h2{font-size:19px}
+.bottom-nav{min-height:62px;left:0;right:0;bottom:0;border-radius:18px 18px 0 0;padding:6px 8px calc(6px + var(--native-bottom));z-index:120}
+.bottom-item{min-width:0;padding:6px 7px}
+.bottom-item .bi{font-size:18px;line-height:18px}
+.bottom-item small{font-size:8px}
+.day-dock{background:#0b2b40;border-top:1px solid rgba(255,255,255,.1);overflow-x:auto}
+.day-dock-inner{padding:5px 12px 6px}
+.dock-label{font-size:8px;letter-spacing:.1em}
+.dock-pill{font-size:9px;border-radius:10px;padding:6px 7px;min-width:42px}
+.meals-card{padding:12px}
+.meal-head p{font-size:9px}
+.meal-option{grid-template-columns:minmax(0,1fr) auto;padding:9px}
+.meal-copy b{font-size:11px}
+.meal-copy span{font-size:9px}
+.meal-actions{gap:4px}
+.meals-card .btn{padding:7px 8px;font-size:9px}
+.home-weather{border-radius:20px}
+.home-weather-main{padding:13px 13px 9px}
+.home-weather-temp{font-size:34px}
+.home-weather-stats{padding:0 13px 10px}
+.home-weather-hours{padding:0 13px 10px}
+.home-weather-foot{padding:8px 13px}
+@media(max-width:374px){.home-weather-hours{grid-template-columns:repeat(2,1fr)}.hero{min-height:225px}.hero h2{font-size:27px}.now-title{font-size:24px}}
+
 body:not(.day-mode) .day-dock{display:none}
 .day-dock{min-height:46px}
 @media(max-width:520px){
@@ -258,7 +288,7 @@ main{padding-bottom:calc(125px + var(--native-bottom))}
   .brand-mark,.brand-mark svg{width:38px;height:38px}
   .brand-copy strong{font-size:11px}
   .brand-copy small{font-size:8px}
-  .version-chip,.top-heart{padding:6px 8px}
+  .version-chip,
   .dock-pill{min-width:48px}
 }
 
@@ -266,7 +296,7 @@ main{padding-bottom:calc(125px + var(--native-bottom))}
 <style>
 :root{--ink:#15212b;--muted:#6d7782;--bg:#f5f2ec;--card:#fffdf9;--line:#e3ddd4;--navy:#0b2b40;--sky:#2a7893;--orange:#ef8b3c;--green:#2d806d;--shadow:0 14px 35px rgba(18,39,53,.10);--radius:22px}
 body{background:radial-gradient(circle at 20% 0%,rgba(255,255,255,.92),transparent 35%),linear-gradient(180deg,#f7f4ee,#f1eee7);padding-bottom:92px}.wrap{max-width:980px}
-.top{position:sticky;top:0;z-index:100;background:rgba(11,43,64,.94);backdrop-filter:blur(18px);box-shadow:0 8px 25px rgba(7,25,37,.15)}.top-shell{min-height:70px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px}.brand{display:flex;align-items:center;gap:11px;color:#fff}.brand-mark{width:42px;height:42px;display:grid;place-items:center}.brand-mark svg{width:42px;height:42px}.brand-copy{display:flex;flex-direction:column;line-height:1}.brand-copy strong{font-size:12px;letter-spacing:.08em}.brand-copy small{font-size:9px;color:#cfe2eb;letter-spacing:.16em;margin-top:5px}.top-context{display:flex;align-items:center;gap:6px}.today-chip,.version-chip{display:inline-flex;align-items:center;border:1px solid rgba(255,255,255,.2);border-radius:999px;padding:7px 9px;font-size:9px;font-weight:900;color:#fff;background:rgba(255,255,255,.08)}.version-chip{background:rgba(239,139,60,.18);border-color:rgba(239,139,60,.42)}.top-heart{height:34px;min-width:42px;border-radius:999px;display:flex;align-items:center;justify-content:center;gap:3px;color:#fff;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.08);font-size:13px}.top-heart b{font-size:9px;background:#ef8b3c;padding:2px 5px;border-radius:999px}.weekbar{display:none}.day-dock{background:rgba(248,245,239,.97);border-bottom:1px solid var(--line);position:sticky;top:70px;z-index:90}.day-dock-inner{display:flex;align-items:center;gap:6px;padding:7px 14px;overflow:auto;scrollbar-width:none}.day-dock-inner::-webkit-scrollbar{display:none}.dock-label{font-size:8px;font-weight:900;letter-spacing:.12em;color:#8b918f;padding-right:4px;white-space:nowrap}.dock-pill{min-width:49px;padding:7px 8px;border-radius:14px;text-align:center;background:#fff;border:1px solid var(--line);font-size:11px;font-weight:900;color:var(--navy);box-shadow:0 4px 10px rgba(15,39,53,.04)}.dock-pill small{display:block;font-size:7px;opacity:.6;margin-top:1px}.dock-pill.active{background:var(--navy);border-color:var(--navy);color:#fff}.dock-pill:active,.bottom-item:active{transform:translateY(1px) scale(.98)}
+.top{position:sticky;top:0;z-index:100;background:rgba(11,43,64,.94);backdrop-filter:blur(18px);box-shadow:0 8px 25px rgba(7,25,37,.15)}.top-shell{min-height:70px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px}.brand{display:flex;align-items:center;gap:11px;color:#fff}.brand-mark{width:42px;height:42px;display:grid;place-items:center}.brand-mark svg{width:42px;height:42px}.brand-copy{display:flex;flex-direction:column;line-height:1}.brand-copy strong{font-size:12px;letter-spacing:.08em}.brand-copy small{font-size:9px;color:#cfe2eb;letter-spacing:.16em;margin-top:5px}.top-context{display:flex;align-items:center;gap:6px}.today-chip,.version-chip{display:inline-flex;align-items:center;border:1px solid rgba(255,255,255,.2);border-radius:999px;padding:7px 9px;font-size:9px;font-weight:900;color:#fff;background:rgba(255,255,255,.08)}.version-chip{background:rgba(239,139,60,.18);border-color:rgba(239,139,60,.42)}.weekbar{display:none}.day-dock{background:rgba(248,245,239,.97);border-bottom:1px solid var(--line);position:sticky;top:70px;z-index:90}.day-dock-inner{display:flex;align-items:center;gap:6px;padding:7px 14px;overflow:auto;scrollbar-width:none}.day-dock-inner::-webkit-scrollbar{display:none}.dock-label{font-size:8px;font-weight:900;letter-spacing:.12em;color:#8b918f;padding-right:4px;white-space:nowrap}.dock-pill{min-width:49px;padding:7px 8px;border-radius:14px;text-align:center;background:#fff;border:1px solid var(--line);font-size:11px;font-weight:900;color:var(--navy);box-shadow:0 4px 10px rgba(15,39,53,.04)}.dock-pill small{display:block;font-size:7px;opacity:.6;margin-top:1px}.dock-pill.active{background:var(--navy);border-color:var(--navy);color:#fff}.dock-pill:active,.bottom-item:active{transform:translateY(1px) scale(.98)}
 main{padding-top:17px;padding-bottom:110px}.hero{border-radius:28px;min-height:330px;box-shadow:var(--shadow)}.hero h2{font-size:38px;letter-spacing:-.025em}.card{border:1px solid rgba(227,221,212,.85);background:rgba(255,253,249,.96);box-shadow:0 9px 26px rgba(18,39,53,.06)}.home-launch{border-radius:26px;border:1px solid #e7ded3;background:linear-gradient(145deg,#fffdf8,#f1ece3);box-shadow:var(--shadow);padding:18px;margin:14px 0}.scene-ribbon{border-radius:999px;border:1px solid #e4ddd4;background:#fcfaf5;padding:8px 12px;font-weight:900;box-shadow:0 6px 16px rgba(18,39,53,.05)}.btn{border-radius:14px;border-color:#e0d8ce;background:#fffdf8;color:var(--navy);font-weight:850}.btn.primary{background:var(--navy);color:#fff;border-color:var(--navy)}
 .gallery{margin-top:16px}.gallery-head,.photo-strip-head{display:flex;align-items:end;justify-content:space-between;gap:12px;margin:0 0 9px;padding:0 2px}.gallery-head h3{margin:2px 0 0;font-family:Georgia,serif;font-size:22px}.eyebrow{font-size:8px;letter-spacing:.15em;font-weight:950;color:var(--orange)}.gallery-note,.photo-strip-head>span:last-child{font-size:9px;color:var(--muted)}
 .photo-mosaic{display:grid;grid-template-columns:1.2fr 1fr;grid-auto-rows:150px;gap:9px}.photo-card{position:relative;border:0;padding:0;border-radius:20px;overflow:hidden;background:#0f293b;box-shadow:0 10px 25px rgba(14,41,64,.10);cursor:pointer}.photo-card.featured{grid-row:span 2}.photo-card img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .5s ease}.photo-card:hover img{transform:scale(1.035)}.photo-card>span,.strip-photo>span{position:absolute;left:10px;right:10px;bottom:9px;color:#fff;text-align:left;text-shadow:0 2px 10px rgba(0,0,0,.35)}.photo-card>span b{display:block;font-size:11px}.photo-card>span small{display:block;font-size:9px;opacity:.9}
@@ -274,26 +304,7 @@ main{padding-top:17px;padding-bottom:110px}.hero{border-radius:28px;min-height:3
 .bottom-nav{position:fixed;left:10px;right:10px;bottom:10px;z-index:110;display:grid;grid-template-columns:repeat(5,1fr);gap:3px;padding:8px 7px;border-radius:22px;background:rgba(12,30,43,.94);backdrop-filter:blur(16px);box-shadow:0 16px 40px rgba(12,30,43,.25);border:1px solid rgba(255,255,255,.12)}.bottom-item{min-height:52px;border-radius:16px;color:#a9bac5;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}.bottom-item .bi{font-size:18px;line-height:1;font-weight:900}.bottom-item small{font-size:8px;font-weight:900}.bottom-item.active{background:rgba(255,255,255,.11);color:#fff}.bottom-item.active .heart{color:#f18f6e}
 .photo-lightbox{position:fixed;inset:0;z-index:300;background:rgba(6,17,25,.94);display:flex;align-items:center;justify-content:center;padding:24px}.photo-lightbox.hidden{display:none}.photo-lightbox img{max-width:95vw;max-height:75vh;border-radius:18px;box-shadow:0 25px 55px rgba(0,0,0,.4)}.lightbox-close{position:absolute;top:14px;right:16px;width:40px;height:40px;border-radius:50%;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.08);color:#fff;font-size:28px}.lightbox-caption{position:absolute;bottom:18px;left:20px;right:20px;color:#fff;text-align:center;font-size:12px;font-weight:800}
 @media(min-width:860px){.bottom-nav{left:50%;right:auto;transform:translateX(-50%);width:min(600px,calc(100vw - 40px))}.photo-mosaic{grid-template-columns:1.3fr 1fr 1fr;grid-auto-rows:170px}.photo-card.featured{grid-row:span 2}}@media(max-width:520px){.top-shell{min-height:66px}.day-dock{top:66px}.today-chip{display:none}.hero{min-height:300px}.hero h2{font-size:34px}.gallery-head{align-items:start;flex-direction:column}.gallery-note{display:none}}@media(prefers-reduced-motion:reduce){*{transition:none!important}}
-<style id="v22-safearea">
-:root{--native-top:0px;--native-bottom:0px}
-.top{padding-top:var(--native-top)!important}
-.bottom-nav{bottom:var(--native-bottom)!important;padding-bottom:6px!important}
-main{padding-bottom:calc(116px + var(--native-bottom))!important}
-@media(max-width:400px){
- .top-inner{padding-top:10px!important;padding-bottom:9px!important}
- .top h1{font-size:20px!important}.top p{font-size:10px!important}
- .top-tools{margin-top:6px!important}.top-btn{padding:6px 8px!important;font-size:10px!important}
- .hero{min-height:248px!important;border-radius:20px!important}.hero h2{font-size:27px!important}
- .card{padding:13px!important;border-radius:18px!important}.card h2{font-size:18px!important}
- .day-dock-inner{padding-left:8px!important;padding-right:8px!important}.dock-label{display:none!important}
- .dock-pill{min-width:42px!important;padding:5px 6px!important}
- .bottom-nav{left:8px!important;right:8px!important;border-radius:20px 20px 0 0!important}
- .bottom-item{min-height:50px!important}
-}
-.meal-option{cursor:pointer}.meal-option.selected{box-shadow:0 0 0 1px #9ed9c8 inset}
-.meal-type{display:inline-flex!important;align-items:center;margin-left:4px;padding:2px 6px;border-radius:999px;background:#f1f5f7;color:#587082!important;font-size:8px!important}
-.meal-actions .map-only{min-width:42px}
-</style></style></head><body>
+</style></head><body>
 <header class="top" id="appTop">
 <div class="top-shell wrap">
 <a aria-label="Vai alla home" class="brand route" data-route="home" href="#home">
@@ -725,7 +736,7 @@ main{padding-bottom:calc(116px + var(--native-bottom))!important}
 <p>Una giornata archeologica senza l’ansia di vedere tutto.</p>
 </div>
 </section><section class="day-photo-strip"><div class="photo-strip-head"><span class="eyebrow">IN SCENA</span><span>Due immagini per orientarti</span></div><div class="photo-strip-grid"><button class="strip-photo" data-caption="25 · pompei" data-photo-key="pompei" type="button"><img alt="" data-photo-key="pompei" src=""/><span>pompei</span></button><button class="strip-photo" data-caption="25 · arrival_vesuvio" data-photo-key="arrival_vesuvio" type="button"><img alt="" data-photo-key="arrival_vesuvio" src=""/><span>arrival vesuvio</span></button></div></section><div aria-label="Identità visiva giornata" class="scene-ribbon"><span class="scene-orb">🏛️</span><div><b>POMPEI · ARCHEOLOGIA</b><small>Le rovine e il Vesuvio come sfondo</small></div><span class="scene-index">25</span></div>
-<div class="card" style="margin-top:0"><a class="btn primary map-big" href="https://www.google.com/maps/search/?api=1&amp;query=Parco%20Archeologico%20di%20Pompei" rel="noopener" target="_blank">🧭 PORTAMI A PARCO ARCHEOLOGICO DI POMPEI</a><div style="margin-top:8px"><button class="btn fav-btn" data-fav-href="https://www.google.com/maps/search/?api=1&amp;query=Parco%20Archeologico%20di%20Pompei" data-fav-id="day25" data-fav-label="Pompei" type="button">♡ Salva</button></div></div>
+<div class="card" style="margin-top:0"><a class="btn primary map-big" href="https://www.google.com/maps/search/?api=1&amp;query=Parco%20Archeologico%20di%20Pompei" rel="noopener" target="_blank">🧭 PORTAMI A PARCO ARCHEOLOGICO DI POMPEI</a></div>
 <div class="btnrow"><a class="btn primary" href="#home">← Tutto il viaggio</a></div><section class="card"><h2>⏱️ Programma della giornata</h2><div class="timeline"><div class="trow"><div class="time">08:30</div><div class="node"><i></i></div><div class="event"><b>Ingresso</b><span>Arrivo agli scavi.</span></div></div><div class="trow"><div class="time">09:00–10:30</div><div class="node"><i></i></div><div class="event"><b>Percorso guidato</b><span>Servizio di accompagnamento ufficiale: circa 1h30, €8 + biglietto.</span></div></div><div class="trow"><div class="time">10:30–13:00</div><div class="node"><i></i></div><div class="event"><b>Esplorazione autonoma</b><span>Continuate nelle zone che vi interessano di più.</span></div></div><div class="trow"><div class="time">13:15</div><div class="node"><i></i></div><div class="event"><b>Pranzo</b><span>Pausa.</span></div></div><div class="trow"><div class="time">15:00–18:30</div><div class="node"><i></i></div><div class="event"><b>Tempo morto</b><span>Rientro, doccia, riposo.</span></div></div><div class="trow"><div class="time">20:00+</div><div class="node"><i></i></div><div class="event"><b>Cena</b><span>Libera con i parenti.</span></div></div></div></section><section class="card"><h2>🧭 Le cose da sapere</h2><div class="info-grid"><div class="info-card"><div class="ic">🎟️</div><b>Costo</b><p>€20 ingresso + €8 per il servizio ufficiale di accompagnamento indicato nel programma.</p></div><div class="info-card"><div class="ic">👟</div><b>Camminata</b><p>Scarpe comode e acqua: il sito richiede tempo in piedi.</p></div><div class="info-card"><div class="ic">🧭</div><b>Strategia</b><p>Prima capire cosa state vedendo, poi girare da soli.</p></div><div class="info-card"><div class="ic">🌙</div><b>Sera</b><p>Completamente libera.</p></div></div></section><section class="card"><h2>🗺️ Link rapidi</h2><div class="btnrow"><a class="btn" href="https://pompeiisites.org/info-per-la-visita/orari-e-tariffe/" rel="noopener" target="_blank">🎟️ Info Pompei</a><a class="btn" href="https://pompeii.vivaticket.it/it/tour/pompeii-educational-tour/4856" rel="noopener" target="_blank">🧭 Prenota accompagnamento</a><a class="btn" href="https://www.google.com/maps/search/?api=1&amp;query=Parco%20Archeologico%20di%20Pompei" rel="noopener" target="_blank">📍 Pompei</a></div></section><div class="note orange">Il 25 resta dedicato a Pompei; il mare è concentrato sul 23.</div><section class="card route" data-route="giorno-26" href="#giorno-26" style="cursor:pointer"><div class="small">PROSSIMO GIORNO</div><h2 style="margin-top:3px">Fontanelle + Napoli Sotterranea →</h2><p class="muted">Rione Sanità, poi Gambrinus: due visite, con spazio in mezzo.</p></section></section><section class="view hidden" id="view-giorno-26">
 <section class="hero">
 <img alt="Viaggio Napoli 2026 · fontanelle" data-photo-key="fontanelle" src=""/>
@@ -735,7 +746,7 @@ main{padding-bottom:calc(116px + var(--native-bottom))!important}
 <p>Rione Sanità, poi Gambrinus: due visite, con spazio in mezzo.</p>
 </div>
 </section><section class="day-photo-strip"><div class="photo-strip-head"><span class="eyebrow">IN SCENA</span><span>Due immagini per orientarti</span></div><div class="photo-strip-grid"><button class="strip-photo" data-caption="26 · fontanelle" data-photo-key="fontanelle" type="button"><img alt="" data-photo-key="fontanelle" src=""/><span>fontanelle</span></button><button class="strip-photo" data-caption="26 · centro" data-photo-key="centro" type="button"><img alt="" data-photo-key="centro" src=""/><span>centro</span></button></div></section><div aria-label="Identità visiva giornata" class="scene-ribbon"><span class="scene-orb">🕯️</span><div><b>SANITÀ · SOTTERRANEA</b><small>Fontanelle, vicoli e Napoli sotto terra</small></div><span class="scene-index">26</span></div>
-<div class="card" style="margin-top:0"><a class="btn primary map-big" href="https://www.google.com/maps/search/?api=1&amp;query=Cimitero%20delle%20Fontanelle%20Napoli" rel="noopener" target="_blank">🧭 PORTAMI A CIMITERO DELLE FONTANELLE</a><div style="margin-top:8px"><button class="btn fav-btn" data-fav-href="https://www.google.com/maps/search/?api=1&amp;query=Cimitero%20delle%20Fontanelle%20Napoli" data-fav-id="day26" data-fav-label="Cimitero delle Fontanelle" type="button">♡ Salva</button></div></div>
+<div class="card" style="margin-top:0"><a class="btn primary map-big" href="https://www.google.com/maps/search/?api=1&amp;query=Cimitero%20delle%20Fontanelle%20Napoli" rel="noopener" target="_blank">🧭 PORTAMI A CIMITERO DELLE FONTANELLE</a></div>
 <div class="btnrow"><a class="btn primary" href="#home">← Tutto il viaggio</a></div><section class="card"><h2>⏱️ Programma della giornata</h2><div class="timeline"><div class="trow"><div class="time">09:45</div><div class="node"><i></i></div><div class="event"><b>Fontanelle</b><span>Arrivo circa 15 minuti prima dello slot.</span></div></div><div class="trow"><div class="time">10:00–10:45</div><div class="node"><i></i></div><div class="event"><b>Cimitero delle Fontanelle</b><span>Ingresso intero €8 secondo il programma impostato.</span></div></div><div class="trow"><div class="time">11:00–11:45</div><div class="node"><i></i></div><div class="event"><b>Rione Sanità</b><span>Passeggiata breve; se siete stanchi la accorciate.</span></div></div><div class="trow"><div class="time">12:00–13:00</div><div class="node"><i></i></div><div class="event"><b>Napoli Sotterranea LAES</b><span>Ritrovo davanti al Gambrinus; circa 60 min; ~€15 adulto.</span></div></div><div class="trow"><div class="time">13:15–14:15</div><div class="node"><i></i></div><div class="event"><b>Pranzo</b><span>Zona Plebiscito/Toledo.</span></div></div><div class="trow"><div class="time">14:15–16:15</div><div class="node"><i></i></div><div class="event"><b>Tempo libero</b><span>Passeggiata, caffè, shopping o rientro.</span></div></div><div class="trow"><div class="time">20:00+</div><div class="node"><i></i></div><div class="event"><b>Cena</b><span>Libera con i parenti.</span></div></div></div></section><section class="card"><h2>🧭 Le cose da sapere</h2><div class="info-grid"><div class="info-card"><div class="ic">☠️</div><b>Fontanelle</b><p>Visita breve e intensa; la parte più interessante sono le storie e il culto delle anime pezzentelle.</p></div><div class="info-card"><div class="ic">🚶</div><b>Sanità → centro</b><p>La passeggiata non è una terza visita: serve a respirare il quartiere.</p></div><div class="info-card"><div class="ic">🕳️</div><b>Sotterranea</b><p>Il tour richiesto è quello LAES con ritrovo al Gambrinus.</p></div><div class="info-card"><div class="ic">☕</div><b>Pomeriggio</b><p>Nessun altro appuntamento obbligatorio dopo pranzo.</p></div></div></section><section class="card"><h2>🗺️ Link rapidi</h2><div class="btnrow"><a class="btn" href="https://cimiterodellefontanelle.it/pianifica-visita/" rel="noopener" target="_blank">🎟️ Fontanelle</a><a class="btn" href="https://www.google.com/maps/search/?api=1&amp;query=Cimitero%20delle%20Fontanelle%20Napoli" rel="noopener" target="_blank">📍 Fontanelle</a><a class="btn" href="https://www.lanapolisotterranea.it/napoli-sotterranea-prenotazione/" rel="noopener" target="_blank">🎟️ Sotterranea LAES</a><a class="btn" href="https://www.google.com/maps/search/?api=1&amp;query=Gran%20Caffe%20Gambrinus%20Napoli" rel="noopener" target="_blank">📍 Gambrinus</a><a class="btn" href="https://www.anm.it/" rel="noopener" target="_blank">🚇 ANM</a></div></section><div class="note blue">Il 26 è volutamente costruito a blocchi: appuntamento breve → passeggiata → tour → pranzo → tempo libero.</div><section class="card route" data-route="giorno-27" href="#giorno-27" style="cursor:pointer"><div class="small">PROSSIMO GIORNO</div><h2 style="margin-top:3px">Festa dei Gigli di Barra · solo sera →</h2><p class="muted">Mattina libera. Si parte nel pomeriggio per la seconda parte della Ballata.</p></section></section><section class="view hidden" id="view-giorno-27">
 <section class="hero">
 <img alt="Viaggio Napoli 2026 · gigli" data-photo-key="gigli" src=""/>
@@ -745,7 +756,7 @@ main{padding-bottom:calc(116px + var(--native-bottom))!important}
 <p>Mattina libera. Si parte nel pomeriggio per la seconda parte della Ballata.</p>
 </div>
 </section><section class="day-photo-strip"><div class="photo-strip-head"><span class="eyebrow">IN SCENA</span><span>Due immagini per orientarti</span></div><div class="photo-strip-grid"><button class="strip-photo" data-caption="27 · gigli" data-photo-key="gigli" type="button"><img alt="" data-photo-key="gigli" src=""/><span>gigli</span></button><button class="strip-photo" data-caption="27 · centro" data-photo-key="centro" type="button"><img alt="" data-photo-key="centro" src=""/><span>centro</span></button></div></section><div aria-label="Identità visiva giornata" class="scene-ribbon"><span class="scene-orb">✨</span><div><b>BARRA · FESTA DEI GIGLI</b><small>Solo la serata finale, tra luci e musica</small></div><span class="scene-index">27</span></div>
-<div class="card" style="margin-top:0"><a class="btn primary map-big" href="https://www.google.com/maps/search/?api=1&amp;query=Napoli%20San%20Giovanni%20Barra%20stazione" rel="noopener" target="_blank">🧭 PORTAMI A NAPOLI SAN GIOVANNI-BARRA</a><div style="margin-top:8px"><button class="btn fav-btn" data-fav-href="https://www.google.com/maps/search/?api=1&amp;query=Napoli%20San%20Giovanni%20Barra%20stazione" data-fav-id="day27" data-fav-label="Festa dei Gigli · Barra" type="button">♡ Salva</button></div></div>
+<div class="card" style="margin-top:0"><a class="btn primary map-big" href="https://www.google.com/maps/search/?api=1&amp;query=Napoli%20San%20Giovanni%20Barra%20stazione" rel="noopener" target="_blank">🧭 PORTAMI A NAPOLI SAN GIOVANNI-BARRA</a></div>
 <div class="btnrow"><a class="btn primary" href="#home">← Tutto il viaggio</a><a class="btn" href="https://gigli.app/barra/info/" rel="noopener" target="_blank">🎉 Programma Gigli</a></div><section class="card"><h2>⏱️ Programma della giornata</h2><div class="timeline"><div class="trow"><div class="time">Mattina</div><div class="node"><i></i></div><div class="event"><b>Libera</b><span>Dormire, famiglia, hotel o una passeggiata tranquilla.</span></div></div><div class="trow"><div class="time">15:00–15:30</div><div class="node"><i></i></div><div class="event"><b>Pompei → Napoli Centrale</b><span>Auto e parcheggio in zona Piazza Garibaldi.</span></div></div><div class="trow"><div class="time">~16:00</div><div class="node"><i></i></div><div class="event"><b>Da Napoli a Barra</b><span>Riferimento: collegamento verso Napoli San Giovanni-Barra, se operativo.</span></div></div><div class="trow"><div class="time">17:15–17:45</div><div class="node"><i></i></div><div class="event"><b>Arrivo a Barra</b><span>Entrare nel quartiere, orientarsi e scegliere dove stare.</span></div></div><div class="trow"><div class="time">18:00+</div><div class="node"><i></i></div><div class="event"><b>Grande Ballata</b><span>La seconda parte che vi interessa, fino a fine festa.</span></div></div><div class="trow"><div class="time">Dopo</div><div class="node"><i></i></div><div class="event"><b>Rientro</b><span>Controllare il servizio ferroviario in tempo reale e tornare a Napoli Centrale/Pompei.</span></div></div></div></section><section class="card"><h2>🧭 Le cose da sapere</h2><div class="info-grid"><div class="info-card"><div class="ic">🎉</div><b>Cosa vedete</b><p>Solo la parte serale della Ballata: dalle 18:00 fino a fine festa.</p></div><div class="info-card"><div class="ic">🚗</div><b>Auto</b><p>Parcheggiatela fuori dal cuore della manifestazione.</p></div><div class="info-card"><div class="ic">🚆</div><b>Trasporto</b><p>San Giovanni-Barra è il riferimento ferroviario da controllare.</p></div><div class="info-card"><div class="ic">🍴</div><b>Cena</b><p>Lasciata libera: prima, durante o dopo, in base a come va la serata.</p></div></div></section><section class="card"><h2>🗺️ Link rapidi</h2><div class="btnrow"><a class="btn" href="https://www.google.com/maps/dir/?api=1&amp;origin=Pompei%2C%20NA&amp;destination=Napoli%20Centrale%20Piazza%20Garibaldi&amp;travelmode=driving" rel="noopener" target="_blank">🚗 Pompei → Napoli Centrale</a><a class="btn" href="https://www.google.com/maps/search/?api=1&amp;query=Piazza%20Garibaldi%20Napoli" rel="noopener" target="_blank">🅿️ Piazza Garibaldi</a><a class="btn" href="https://www.google.com/maps/search/?api=1&amp;query=Napoli%20San%20Giovanni%20Barra%20stazione" rel="noopener" target="_blank">🚆 San Giovanni-Barra</a><a class="btn" href="https://www.rfi.it/it/viaggi/infomobilita.html" rel="noopener" target="_blank">🚆 RFI</a><a class="btn" href="https://gigli.app/barra/info/" rel="noopener" target="_blank">🎉 Programma Gigli</a></div></section><div class="note red">Il programma 2026 indica la seconda parte della Ballata dalle 18:00 fino a fine festa; il Comune segnala anche modifiche temporanee alla viabilità e presenza di migliaia di persone.</div><section class="card route" data-route="giorno-28" href="#giorno-28" style="cursor:pointer"><div class="small">PROSSIMO GIORNO</div><h2 style="margin-top:3px">Check-out e ritorno →</h2><p class="muted">Mattina libera. Il ritorno resta volutamente senza orario fisso.</p></section></section><section class="view hidden" id="view-giorno-28">
 <section class="hero">
 <img alt="Viaggio Napoli 2026 · arrival_vesuvio" data-photo-key="arrival_vesuvio" src=""/>
@@ -755,7 +766,7 @@ main{padding-bottom:calc(116px + var(--native-bottom))!important}
 <p>Mattina libera. Il ritorno resta volutamente senza orario fisso.</p>
 </div>
 </section><section class="day-photo-strip"><div class="photo-strip-head"><span class="eyebrow">IN SCENA</span><span>Due immagini per orientarti</span></div><div class="photo-strip-grid"><button class="strip-photo" data-caption="28 · arrival_vesuvio" data-photo-key="arrival_vesuvio" type="button"><img alt="" data-photo-key="arrival_vesuvio" src=""/><span>arrival vesuvio</span></button><button class="strip-photo" data-caption="28 · pompei" data-photo-key="pompei" type="button"><img alt="" data-photo-key="pompei" src=""/><span>pompei</span></button></div></section><div aria-label="Identità visiva giornata" class="scene-ribbon"><span class="scene-orb">🚗</span><div><b>RITORNO · VERSO CERVIA</b><small>Checkout, strada e ultimo sguardo al Vesuvio</small></div><span class="scene-index">28</span></div>
-<div class="card" style="margin-top:0"><a class="btn primary map-big" href="https://www.google.com/maps/dir/?api=1&amp;origin=Pompei%2C%20NA&amp;destination=Cervia%2C%20RA&amp;travelmode=driving" rel="noopener" target="_blank">🧭 PORTAMI A POMPEI → CERVIA</a><div style="margin-top:8px"><button class="btn fav-btn" data-fav-href="https://www.google.com/maps/dir/?api=1&amp;origin=Pompei%2C%20NA&amp;destination=Cervia%2C%20RA&amp;travelmode=driving" data-fav-id="day28" data-fav-label="Pompei → Cervia" type="button">♡ Salva</button></div></div>
+<div class="card" style="margin-top:0"><a class="btn primary map-big" href="https://www.google.com/maps/dir/?api=1&amp;origin=Pompei%2C%20NA&amp;destination=Cervia%2C%20RA&amp;travelmode=driving" rel="noopener" target="_blank">🧭 PORTAMI A POMPEI → CERVIA</a></div>
 <div class="btnrow"><a class="btn primary" href="#home">← Tutto il viaggio</a></div><section class="card"><h2>⏱️ Programma della giornata</h2><div class="timeline"><div class="trow"><div class="time">Mattina</div><div class="node"><i></i></div><div class="event"><b>Check-out</b><span>Colazione, bagagli e consegna della stanza secondo accordi.</span></div></div><div class="trow"><div class="time">Prima di partire</div><div class="node"><i></i></div><div class="event"><b>Ultima pausa</b><span>Se avete tempo, una passeggiata a Pompei o un pranzo.</span></div></div><div class="trow"><div class="time">Quando volete</div><div class="node"><i></i></div><div class="event"><b>Partenza</b><span>Rientro verso Cervia con Tesla.</span></div></div><div class="trow"><div class="time">20:00–23:30</div><div class="node"><i></i></div><div class="event"><b>Opzionale</b><span>Solo se la partenza è molto tarda: possibile ultimo evento dei Gigli delle donne e dei giovani.</span></div></div></div></section><section class="card"><h2>🧭 Le cose da sapere</h2><div class="info-grid"><div class="info-card"><div class="ic">🧳</div><b>Check-out</b><p>Nessun appuntamento culturale da rispettare.</p></div><div class="info-card"><div class="ic">🚗</div><b>Rientro</b><p>Il percorso Pompei → Cervia è già pronto.</p></div><div class="info-card"><div class="ic">⚡</div><b>Tesla</b><p>Il navigatore potrà pianificare le ricariche automaticamente.</p></div><div class="info-card"><div class="ic">🧘</div><b>Piano B</b><p>Se siete stanchi, partite direttamente: non c’è una visita da salvare.</p></div></div></section><section class="card"><h2>🗺️ Link rapidi</h2><div class="btnrow"><a class="btn" href="https://www.google.com/maps/dir/?api=1&amp;origin=Pompei%2C%20NA&amp;destination=Cervia%2C%20RA&amp;travelmode=driving" rel="noopener" target="_blank">🗺️ Pompei → Cervia</a><a class="btn" href="https://www.google.com/maps/search/?api=1&amp;query=Pompei%20Italia" rel="noopener" target="_blank">📍 Pompei</a><a class="btn" href="https://www.tesla.com/it_IT/findus/list/superchargers/Italy" rel="noopener" target="_blank">⚡ Supercharger Tesla</a></div></section><div class="note green">Il ritorno è volutamente flessibile, come richiesto.</div></section>
 </main><div class="footer">Guida personale del viaggio · meteo principale Open-Meteo + confronto MeteoAM · foto illustrative generate per questa guida · v2.0</div></div>
 <script>
@@ -916,32 +927,6 @@ function initChecks(){
  boxes.forEach(b=>{const k="napoli26_"+b.dataset.check;b.checked=napoliStoreGet(k)==="1";b.onchange=()=>{napoliStoreSet(k,b.checked?"1":"0");upd()}});upd();
 }
 
-function readFavorites(){
- try{const x=JSON.parse(napoliStoreGet("napoli26_favorites")||"[]");return Array.isArray(x)?x:[]}catch(e){return []}
-}
-function writeFavorites(x){napoliStoreSet("napoli26_favorites",JSON.stringify(x))}
-function toggleFavorite(id,label,href){
- let list=readFavorites(), idx=list.findIndex(x=>x.id===id);
- if(idx>=0)list.splice(idx,1);else list.push({id,label,href});
- writeFavorites(list); refreshFavoriteButtons(); renderFavorites();
-}
-function refreshFavoriteButtons(){
- document.querySelectorAll(".fav-btn").forEach(b=>{
-   const saved=readFavorites().some(x=>x.id===b.dataset.favId);
-   b.classList.toggle("saved",saved);
-   b.textContent=saved?"♥ Salvato":"♡ Salva";
- });
-}
-function renderFavorites(){
- const list=readFavorites(), panel=document.getElementById("favoriteList"), empty=document.getElementById("favoriteEmpty");
- if(!panel||!empty)return;
- panel.innerHTML=list.map(x=>`<div class="favorite-item"><b>❤️ ${x.label}</b><span>Destinazione salvata</span><div class="btnrow"><a class="btn" href="${x.href}" target="_blank" rel="noopener">🧭 Apri Maps</a><button class="btn fav-btn saved" type="button" data-fav-id="${x.id}" data-fav-label="${x.label}" data-fav-href="${x.href}">♥ Salvato</button></div></div>`).join("");
- empty.classList.toggle("hidden",list.length>0);
-}
-function initFavorites(){
- refreshFavoriteButtons();renderFavorites();
-}
-
 function setRoute(route){
  document.body.classList.toggle("day-mode",route.indexOf("giorno-")===0);
  document.querySelectorAll(".view").forEach(v=>v.classList.toggle("hidden",v.id!=="view-"+route));
@@ -952,12 +937,6 @@ function setRoute(route){
 }
 
 document.addEventListener("click",e=>{
- const fav=e.target.closest(".fav-btn");
- if(fav){
-   e.preventDefault();e.stopPropagation();
-   toggleFavorite(fav.dataset.favId,fav.dataset.favLabel,fav.dataset.favHref);
-   return;
- }
  const a=e.target.closest(".route[href^='#'],a.route[data-route]");
  if(!a)return;
  const r=a.dataset.route||a.getAttribute("href").replace(/^#/,"").split("?")[0];if(!r)return;
@@ -1104,7 +1083,7 @@ const MEAL_OPTIONS={
     ["Ristorante Spinelli Bistrot","Piazza Bartolo Longo; cucina italiana, mediterranea e di mare", "ristorante"],
     ["Ristorante Pizzeria Bellavie","Piazza Bartolo Longo; soluzione comoda dopo l'arrivo", "ristorante"],
     ["L'Antica Pizzeria Da Michele Pompei","Via Lepanto; pizza, soluzione semplice per la prima sera", "pizza"],
-    ["Enz street food","soluzione informale con panini/street food a Pompei", "street food"]
+    ["Giulia's Wine Restaurant","cucina italiana e pesce · cena più curata", "ristorante"]
    ]}
  },
  "22":{
@@ -1136,7 +1115,7 @@ const MEAL_OPTIONS={
     ["Ristorante Spinelli Bistrot","Piazza Bartolo Longo; cucina italiana e di mare", "ristorante"],
     ["Ristorante Pizzeria Bellavie","Piazza Bartolo Longo; ampia scelta e orario serale", "ristorante"],
     ["Cosmo Restaurant Pompei","Viale Giuseppe Mazzini; opzione più curata", "ristorante"],
-    ["Enz street food","panini/street food per una cena senza impegno", "street food"]
+    ["Garum Pompei","cucina campana/mediterranea · cena seduta", "ristorante"]
    ]}
  },
  "24":{
@@ -1150,9 +1129,9 @@ const MEAL_OPTIONS={
    dinner:{title:"Dopo il San Carlo · Chiaia / lungomare",note:"L'opera può finire attorno alle 23:30: qui ho privilegiato locali con orario serale più ampio. Verifica comunque l'orario del 24/09 prima di uscire dal teatro.",items:[
     ["Fiaschetteria Agricola · Chiaia","Via della Cavallerizza; cucina napoletana e apertura serale", "ristorante"],
     ["Quartiere Generale","Riviera di Chiaia; locale con orario notturno più ampio", "ristorante"],
-    ["50 Panino di Ciro Salvo","Viale Antonio Gramsci; soluzione panino/cena veloce", "street food"],
-    ["Paninoteca Da Francesco · Piazza Sannazaro","panini e soluzione molto informale anche tardi", "street food"],
-    ["Street Burger · Chiaia","Vico II Alabardieri; hamburger e panini, comodo dopo le 23", "street food"]
+    ["Giappo · Chiaia","ristorante giapponese aperto fino a tardi", "ristorante"],
+    ["Fiaschetteria Agricola · Chiaia","Via della Cavallerizza · cucina napoletana", "ristorante"],
+    ["Marea Bistrot · Chiaia","servizio serale in zona Chiaia", "ristorante"]
    ]}
  },
  "25":{
@@ -1184,7 +1163,7 @@ const MEAL_OPTIONS={
     ["Ristorante Spinelli Bistrot","Piazza Bartolo Longo", "ristorante"],
     ["Ristorante Pizzeria Bellavie","Piazza Bartolo Longo", "ristorante"],
     ["L'Antica Pizzeria Da Michele Pompei","Via Lepanto", "pizza"],
-    ["Enz street food","street food e panini", "street food"]
+    ["Il Cuoppo · dei Vergini","cuoppo e fritti da passeggio · solo pranzo", "street food"]
    ]}
  },
  "27":{
@@ -1196,10 +1175,10 @@ const MEAL_OPTIONS={
     ["Caupona","opzione più caratterizzata sul tema Pompei", "ristorante"]
    ]},
    dinner:{title:"Cena · Barra durante i Gigli",note:"La manifestazione può cambiare affluenza e viabilità: se preferite, mangiate direttamente tra gli stand. Qui sotto trovi comunque cinque posti concreti in zona, tutti coerenti con la sera di Barra.",items:[
-    ["Pub & Grill Cozzolino","Corso Bruno Buozzi; direttamente nella zona di Barra", "pub/ristorante"],
+    ["Cozzolino Braceria","Corso Bruno Buozzi · braceria", "ristorante"],
     ["Bavaro Ò Murzill' Sapurit","Via delle Repubbliche Marinare; panini e soluzione informale", "street food"],
     ["Ermenegildo","Viale 2 Giugno; pizzeria con servizio serale", "pizza"],
-    ["Risto Pub Addu' Sabina","Via Figurelle; ristopub aperto la domenica sera", "pub/ristorante"],
+    ["Castello Showbiz","Via Luigi Volpicella · pizzeria/ristorante", "ristorante"],
     ["Castello Showbiz","Via Luigi Volpicella; ristorante aperto fino a tardi", "ristorante"]
    ]}
  },
@@ -1230,120 +1209,34 @@ function mealsStoreSet(v){napoliStoreSet('napoli26_meals',JSON.stringify(v))}
 function selectMeal(day,meal,value){
   const state=mealsStoreGet(); state[day+'-'+meal]=value; mealsStoreSet(state); renderMeals();
 }
-
-const MEAL_ENHANCE_V22={
-"21":{dinner:{title:"Cena · Pompei",items:[
-["Caupona · Pompei","Esperienza gastronomica a tema Pompei","ristorante"],
-["La Bettola del Gusto · Pompei","Cucina campana e mediterranea","ristorante"],
-["KALMA Restaurant · Pompei","Cena più curata su Via Nolana","ristorante"],
-["Giulia's Wine Restaurant · Pompei","Cucina e vino in Via Sacra","ristorante"],
-["Misaki Sushi Pompei","Sushi e pesce","ristorante"]]}},
-"22":{lunch:{title:"Pranzo · centro storico / Toledo",items:[
-["Antica Pizzeria Di Matteo","Via dei Tribunali · pizza e fritti","pizza"],
-["Gino e Toto Sorbillo","Via dei Tribunali · pizza","pizza"],
-["L'Antica Pizzeria da Michele","Via Cesare Sersale · pizza storica","pizza"],
-["Il Cuoppo | Dei Vergini","Cuoppi e fritti · pranzo rapido","street food"],
-["La Masardona","Pizza fritta e specialità napoletane","street food"]]},
-dinner:{title:"Cena · Napoli",items:[
-["Signora Bettola Trattoria","Santa Lucia · cucina napoletana","trattoria"],
-["Fiaschetteria Agricola · Chiaia","Via della Cavallerizza · cucina campana","ristorante"],
-["Trattoria Castel dell'Ovo","Santa Lucia · cucina di mare","ristorante"],
-["Ostaria Pignatelli","Riviera di Chiaia","ristorante"],
-["Tandem Ragù","Centro · cucina napoletana","ristorante"]]}},
-"23":{dinner:{title:"Cena · rientro a Pompei",items:[
-["Caupona · Pompei","Cena a tema storico","ristorante"],
-["La Bettola del Gusto · Pompei","Cucina campana","ristorante"],
-["Giulia's Wine Restaurant · Pompei","Cucina e vino","ristorante"],
-["Misaki Sushi Pompei","Sushi e pesce","ristorante"],
-["Tiberius Pompei","Cucina italiana/campana","ristorante"]]}},
-"24":{lunch:{title:"Pranzo · Ercolano",items:[
-["Tubba Catubba","Corso Resina · cucina campana e pesce","ristorante"],
-["Viva Lo Re","Corso Resina · cucina campana e vini","ristorante"],
-["Pappamonte","Pausa pranzo a Ercolano","ristorante"],
-["Le Scuderie di Villa Favorita","Corso Resina · pizza e cucina","ristorante"],
-["Masseria Guida","Ercolano · cucina italiana e pesce","ristorante"]]},
-dinner:{title:"Cena · dopo il San Carlo",note:"L'opera può finire tardi: controlla l'orario effettivo il 24/09.",items:[
-["Fiaschetteria Agricola · Chiaia","Via della Cavallerizza · servizio serale","ristorante"],
-["Giappo · Chiaia","Vico Belledonne · aperto fino a tardi","ristorante"],
-["Signora Bettola Trattoria","Santa Lucia · cucina napoletana","trattoria"],
-["Trattoria Castel dell'Ovo","Santa Lucia · cucina di mare","ristorante"],
-["Pad Thai · Chiaia","Vico Belledonne · cucina asiatica","ristorante"]]}},
-"25":{lunch:{title:"Pranzo · Pompei dopo gli scavi",items:[
-["Caupona · Pompei","Vicino al Parco","ristorante"],
-["Giulia's Wine Restaurant · Pompei","Via Sacra","ristorante"],
-["La Bettola del Gusto · Pompei","Via Sacra","ristorante"],
-["Tiberius Pompei","Via Villa dei Misteri","ristorante"],
-["Misaki Sushi Pompei","Via Piave","ristorante"]]},
-dinner:{title:"Cena · Pompei",items:[
-["KALMA Restaurant · Pompei","Via Nolana","ristorante"],
-["Caupona · Pompei","Tema storico + cucina","ristorante"],
-["Giulia's Wine Restaurant · Pompei","Cena e vino","ristorante"],
-["La Bettola del Gusto · Pompei","Cucina campana","ristorante"],
-["Misaki Sushi Pompei","Sushi e pesce","ristorante"]]}},
-"26":{lunch:{title:"Pranzo · Sanità / Materdei",note:"Qui lo street food è utile: giornata molto dinamica.",items:[
-["Concettina ai Tre Santi","Sanità · pizza napoletana","pizza"],
-["Pizzeria Starita","Materdei · pizza e fritti","pizza"],
-["Vicus · Trattoria Napoletana","Sanità · cucina tradizionale","trattoria"],
-["Il Cuoppo | Dei Vergini","Cuoppi e fritti · veloce","street food"],
-["Pizzeria Oliva · Materdei","Pizza e cucina napoletana","pizza"]]},
-dinner:{title:"Cena · rientro a Pompei",items:[
-["KALMA Restaurant · Pompei","Via Nolana","ristorante"],
-["Caupona · Pompei","Tema Pompei","ristorante"],
-["Giulia's Wine Restaurant · Pompei","Via Sacra","ristorante"],
-["La Bettola del Gusto · Pompei","Cucina campana","ristorante"],
-["Misaki Sushi Pompei","Sushi e pesce","ristorante"]]}},
-"27":{lunch:{title:"Pranzo · Pompei prima di partire",items:[
-["Caupona · Pompei","Tema Pompei","ristorante"],
-["La Bettola del Gusto · Pompei","Cucina campana","ristorante"],
-["Giulia's Wine Restaurant · Pompei","Cucina e vino","ristorante"],
-["L'Antica Pizzeria da Michele Pompei","Pizza","pizza"],
-["Tiberius Pompei","Cucina campana","ristorante"]]},
-dinner:{title:"Cena · Barra / Gigli",note:"Nella sezione cena: solo locali con servizio al tavolo.",items:[
-["Cozzolino Braceria","Corso Bruno Buozzi · braceria","ristorante"],
-["Ristorante Bar Pizzeria Ermenegildo","Viale 2 Giugno · cucina e pizza","ristorante"],
-["Castello Showbiz","Via Luigi Volpicella · cucina napoletana e pizza","ristorante"],
-["Pizzeria Mario dal 1970","Corso Bruno Buozzi · pizza e cucina","pizzeria"],
-["La Fila · Corso Sirena","Barra · pizzeria","pizzeria"]]}},
-"28":{dinner:{title:"Cena · Cervia, se arrivate in tempo",items:[
-["CuMà Ristorante","Lungomare Grazia Deledda","ristorante"],
-["Osteria TreSeiCinque","Viale Volturno","osteria"],
-["Osteria Il Cantinone","Via XX Settembre","osteria"],
-["Polvere_bottega_pizza","Viale Alfredo Oriani","pizzeria"],
-["Pizzeria La Vecchia Cervia","Via Circonvallazione Edoardo Sacchetti","pizzeria"]]}}
-};
-Object.keys(MEAL_ENHANCE_V22).forEach(day=>{
- MEAL_OPTIONS[day]=MEAL_OPTIONS[day]||{};
- Object.assign(MEAL_OPTIONS[day],MEAL_ENHANCE_V22[day]);
- if(MEAL_OPTIONS[day].dinner?.items)MEAL_OPTIONS[day].dinner.items=MEAL_OPTIONS[day].dinner.items.filter(x=>!String(x[2]).toLowerCase().includes("street"));
-});
-
 function renderMeals(){
- const state=mealsStoreGet();
- Object.keys(MEAL_OPTIONS).forEach(day=>{
-  const view=document.getElementById('view-giorno-'+day); if(!view)return;
-  const old=view.querySelector('.meals-card'); if(old)old.remove();
-  const box=document.createElement('section'); box.className='card meals-card';
-  let html='<div class="meal-head"><div><h2>🍴 Dove mangiare</h2><p>Scelte curate per la tappa. <b>Street food solo a pranzo.</b> La sera trovi solo ristoranti.</p></div></div>';
-  ['lunch','dinner'].forEach((meal,i)=>{
-   const d=MEAL_OPTIONS[day][meal]; if(!d)return;
-   const sel=state[day+'-'+meal]||'';
-   html+='<details class="meal-block" '+(i===0?'open':'')+'><summary>'+d.title+'</summary><div class="meal-list">';
-   d.items.forEach(it=>{
-    const [name,desc,type]=it,chosen=sel===name?' selected':'';
-    html+='<div class="meal-option'+chosen+'" role="button" tabindex="0" data-meal-day="'+day+'" data-meal="'+meal+'" data-meal-name="'+name.replace(/"/g,'&quot;')+'"><div class="meal-copy"><b>'+name+'</b><span>'+desc+' <em class="meal-type">'+type+'</em></span></div><div class="meal-actions"><a class="btn map-only" href="'+mealMapUrl(name,day,meal)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">📍</a></div></div>';
-   });
-   html+='<div class="meal-option'+(sel==='parenti'?' selected':'')+'" role="button" tabindex="0" data-meal-day="'+day+'" data-meal="'+meal+'" data-meal-name="parenti"><div class="meal-copy"><b>👪 Mangio da un parente</b><span>Scelta libera, senza prenotazione.</span></div></div>';
-   if(d.note)html+='<div class="meal-note">'+d.note+'</div>';
-   html+='</div></details>';
+  const state=mealsStoreGet();
+  Object.keys(MEAL_OPTIONS).forEach(day=>{
+    const view=document.getElementById('view-giorno-'+day); if(!view) return;
+    const old=view.querySelector('.meals-card'); if(old) old.remove();
+    const box=document.createElement('section'); box.className='card meals-card';
+    let html='<div class="meal-head"><div><h2>🍴 Dove mangiare</h2><p>5 posti concreti scelti in funzione dell\'itinerario · puoi scegliere anche <b>mangio da un parente</b>. Orari e disponibilità possono cambiare: verifica Maps il giorno stesso.</p></div><div class="meal-selected" id="meal-sel-'+day+'">nessuna scelta</div></div>';
+    ['lunch','dinner'].forEach((meal,i)=>{
+      const d=MEAL_OPTIONS[day][meal];
+      const key=day+'-'+meal; const sel=state[key]||'';
+      html+='<details class="meal-block" '+(i===0?'open':'')+'><summary>'+d.title+'</summary><div class="meal-list">';
+      d.items.forEach((it,idx)=>{
+        const [name,desc,type]=it; const chosen=sel===name?' selected':'';
+        html+='<div class="meal-option'+chosen+'"><div class="meal-copy"><b>'+name+'</b><span>'+desc+' · '+type+'</span></div><div class="meal-actions"><a class="btn" href="'+mealMapUrl(name,day,meal)+'" target="_blank" rel="noopener">📍 Maps</a><button class="btn pick-btn'+chosen+'" type="button" data-meal-day="'+day+'" data-meal="'+meal+'" data-meal-name="'+name.replace(/"/g,'&quot;')+'">'+(chosen?'✓ Scelto':'Scegli')+'</button></div></div>';
+      });
+      html+='<div class="meal-option'+(sel==='parenti'?' selected':'')+'"><div class="meal-copy"><b>👪 Mangio da un parente</b><span>Nessun locale da prenotare: la scelta resta libera.</span></div><div class="meal-actions"><button class="btn pick-btn '+(sel==='parenti'?'selected':'')+'" type="button" data-meal-day="'+day+'" data-meal="'+meal+'" data-meal-name="parenti">'+(sel==='parenti'?'✓ Scelto':'Scegli')+'</button></div></div>';
+      if(d.note) html+='<div class="meal-note">'+d.note+'</div>';
+      html+='</div></details>';
+    });
+    box.innerHTML=html; view.appendChild(box);
   });
-  box.innerHTML=html; view.appendChild(box);
- });
- document.querySelectorAll('.meal-option[data-meal-day]').forEach(btn=>{
-  const choose=()=>selectMeal(btn.dataset.mealDay,btn.dataset.meal,btn.dataset.mealName);
-  btn.onclick=e=>{if(e.target.closest("a"))return;choose()};
-  btn.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();choose()}};
- });
+  document.querySelectorAll('[data-meal-day]').forEach(btn=>{btn.onclick=()=>selectMeal(btn.dataset.mealDay,btn.dataset.meal,btn.dataset.mealName)});
+  Object.keys(MEAL_OPTIONS).forEach(day=>{
+    const values=['lunch','dinner'].map(m=>mealsStoreGet()[day+'-'+m]).filter(Boolean).map(v=>v==='parenti'?'Parente':v);
+    const tag=document.getElementById('meal-sel-'+day); if(tag) tag.textContent=values.length?values.join(' · '):'nessuna scelta';
+  });
 }
+
 document.addEventListener('DOMContentLoaded',renderMeals);
 </script>\n<script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));}</script>
 <nav aria-label="Navigazione principale" class="bottom-nav" id="appBottomNav">
@@ -1362,9 +1255,7 @@ window.PHOTO_DATA={"arrival_vesuvio":"data:image/jpeg;base64,/9j/4AAQSkZJRgABAQA
    const day=getTripDay(), chip=document.getElementById('topDayChip'); if(chip)chip.textContent=(String(day)>='21'&&String(day)<='28')?('OGGI · '+day+'/09'):'PREPARAZIONE';
    const planner=document.getElementById('bottomPlanner'); if(planner){planner.href='#giorno-'+day;planner.dataset.route='giorno-'+day;}
    const hash=(location.hash||'#home').replace(/^#/,'');
-   document.querySelectorAll('.dock-pill').forEach(x=>x.classList.toggle('active',x.dataset.route===hash));
-   try{const n=(readFavorites?readFavorites():[]).length,c=document.getElementById('topFavCount');if(c)c.textContent=n;}catch(e){}
- }
+   document.querySelectorAll('.dock-pill').forEach(x=>x.classList.toggle('active',x.dataset.route===hash)); }
  document.addEventListener('click',function(e){
    const p=e.target.closest('[data-photo-key]');
    if(p&&!e.target.closest('.photo-card img,.strip-photo img')){const k=p.dataset.photoKey,lb=document.getElementById('photoLightbox'),im=document.getElementById('lightboxImg'),cap=document.getElementById('lightboxCaption');if(lb&&im&&window.PHOTO_DATA[k]){im.src=window.PHOTO_DATA[k];cap.textContent=p.dataset.caption||'';lb.classList.remove('hidden');lb.setAttribute('aria-hidden','false');}}
