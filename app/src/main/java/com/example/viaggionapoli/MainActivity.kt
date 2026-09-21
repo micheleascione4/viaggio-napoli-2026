@@ -483,33 +483,195 @@ fun DiningPreview(day:Int) {
 
 @Composable
 fun MealSection(title:String,places:List<Place>,bg:Color) {
-    Card(shape=RoundedCornerShape(20.dp),colors=CardDefaults.cardColors(containerColor=Color.White)) {
+    Card(shape=RoundedCornerShape(22.dp),colors=CardDefaults.cardColors(containerColor=Color.White)) {
         Column(Modifier.padding(14.dp)) {
-            Surface(shape=RoundedCornerShape(10.dp),color=bg) {
+            Surface(shape=RoundedCornerShape(11.dp),color=bg) {
                 Text(title,Modifier.padding(8.dp),fontSize=10.sp,fontWeight=FontWeight.Black,color=Navy)
             }
             Spacer(Modifier.height(8.dp))
             places.forEachIndexed { i,p ->
                 PlaceRow(p,i+1)
-                if(i<places.lastIndex) HorizontalDivider(color=Color(0xFFE8EDF1),modifier=Modifier.padding(vertical=6.dp))
+                if(i<places.lastIndex) HorizontalDivider(color=Color(0xFFE8EDF1),modifier=Modifier.padding(vertical=5.dp))
+            }
+        }
+    }
+}
+
+fun siteFor(name:String):String? = when(name) {
+    "L'Antica Pizzeria Di Matteo" -> "https://www.pizzeriadimatteo.com/"
+    "L'Antica Pizzeria Da Michele","L'Antica Pizzeria Da Michele Pompei" -> "https://www.damichele.net/"
+    "Gino e Toto Sorbillo" -> "https://www.sorbillo.it/"
+    "Pasticceria Poppella","Poppella" -> "https://www.poppella.it/"
+    "La Masardona" -> "https://www.lamasardona.it/"
+    "Concettina ai Tre Santi" -> "https://www.concettinaitresanti.it/"
+    "Ristorante Umberto" -> "https://www.ristoranteumberto.it/"
+    "Starita","Pizzeria Starita" -> "https://www.pizzeriastarita.it/"
+    "Caupona" -> "https://www.caupona.com/"
+    "Cimitero delle Fontanelle" -> "https://cimiterodellefontanelle.it/"
+    else -> null
+}
+
+@Composable
+fun PlaceRow(p:Place,n:Int) {
+    val context=LocalContext.current
+    val site=siteFor(p.name)
+    Row(Modifier.fillMaxWidth().padding(vertical=5.dp),verticalAlignment=Alignment.CenterVertically) {
+        Text(String.format("%02d",n),fontSize=10.sp,fontWeight=FontWeight.Black,color=Muted,modifier=Modifier.width(28.dp))
+        Column(Modifier.weight(1f)) {
+            Text(p.name,fontSize=12.sp,fontWeight=FontWeight.Bold)
+            Text(p.detail,fontSize=10.sp,color=Muted,maxLines=2,overflow=TextOverflow.Ellipsis)
+            Row(horizontalArrangement=Arrangement.spacedBy(4.dp)) {
+                if(site!=null) {
+                    TextButton(onClick={context.startActivity(Intent(Intent.ACTION_VIEW,Uri.parse(site)))},contentPadding=PaddingValues(0.dp)) {
+                        Icon(Icons.Default.Language,null,modifier=Modifier.size(15.dp))
+                        Spacer(Modifier.width(3.dp))
+                        Text("Sito",fontSize=10.sp)
+                    }
+                }
+                TextButton(onClick={
+                    val q=Uri.encode(p.name+" "+p.detail)
+                    context.startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://www.google.com/maps/search/?api=1&query="+q)))
+                },contentPadding=PaddingValues(0.dp)) {
+                    Icon(Icons.Default.Place,null,modifier=Modifier.size(15.dp))
+                    Spacer(Modifier.width(3.dp))
+                    Text("Maps",fontSize=10.sp)
+                }
+            }
+        }
+    }
+}
+
+suspend fun loadWeather(location:WeatherLocation,date:String):WeatherDay? = withContext(Dispatchers.IO) {
+    try {
+        val url="https://api.open-meteo.com/v1/forecast?latitude="+location.lat+"&longitude="+location.lon+"&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,windspeed_10m_max&hourly=temperature_2m,precipitation_probability,windspeed_10m,weather_code&timezone=Europe%2FRome&start_date="+date+"&end_date="+date
+        val connection=java.net.URL(url).openConnection() as java.net.HttpURLConnection
+        connection.connectTimeout=7000
+        connection.readTimeout=7000
+        connection.requestMethod="GET"
+        val body=connection.inputStream.bufferedReader().use{it.readText()}
+        connection.disconnect()
+
+        val root=org.json.JSONObject(body)
+        val daily=root.getJSONObject("daily")
+        val max=daily.getJSONArray("temperature_2m_max").getDouble(0)
+        val min=daily.getJSONArray("temperature_2m_min").getDouble(0)
+        val rain=daily.getJSONArray("precipitation_probability_max").getInt(0)
+        val wind=daily.getJSONArray("windspeed_10m_max").getInt(0)
+        val code=daily.getJSONArray("weather_code").getInt(0)
+
+        val hourly=root.getJSONObject("hourly")
+        val temps=hourly.getJSONArray("temperature_2m")
+        val probs=hourly.getJSONArray("precipitation_probability")
+        val winds=hourly.getJSONArray("windspeed_10m")
+        val codes=hourly.getJSONArray("weather_code")
+        val times=hourly.getJSONArray("time")
+        val hours=mutableListOf<WeatherHour>()
+        listOf(8,10,12,14,16,18,20).forEach { idx ->
+            if(idx<temps.length()) {
+                hours += WeatherHour(
+                    times.getString(idx).substringAfter("T").take(5),
+                    temps.getDouble(idx).toInt(),
+                    probs.getInt(idx),
+                    winds.getDouble(idx).toInt(),
+                    codes.getInt(idx)
+                )
+            }
+        }
+        WeatherDay(code,max,min,rain,wind,hours)
+    } catch(_:Exception) {
+        null
+    }
+}
+
+fun weatherLabel(code:Int):String = when(code) {
+    0 -> "Sereno"
+    1,2 -> "Poco nuvoloso"
+    3 -> "Coperto"
+    45,48 -> "Nebbia"
+    51,53,55,56,57 -> "Pioviggine"
+    61,63,65,66,67 -> "Pioggia"
+    71,73,75,77 -> "Neve"
+    80,81,82 -> "Rovesci"
+    95,96,99 -> "Temporale"
+    else -> "Variabile"
+}
+
+fun weatherEmoji(code:Int):String = when(code) {
+    0 -> "☀️"
+    1,2 -> "🌤️"
+    3 -> "☁️"
+    45,48 -> "🌫️"
+    51,53,55,56,57 -> "🌦️"
+    61,63,65,66,67 -> "🌧️"
+    71,73,75,77 -> "❄️"
+    80,81,82 -> "🌦️"
+    95,96,99 -> "⛈️"
+    else -> "🌤️"
+}
+
+@Composable
+fun WeatherInline(day:Int) {
+    val context=LocalContext.current
+    val location=dayLocations[day] ?: dayLocations[21]!!
+    val date=String.format("2026-09-%02d",day)
+    val state=produceState<WeatherDay?>(initialValue=null,location.name,day) {
+        value=loadWeather(location,date)
+    }
+    Card(shape=RoundedCornerShape(22.dp),colors=CardDefaults.cardColors(containerColor=Color.White)) {
+        Column(Modifier.padding(16.dp)) {
+            Row(verticalAlignment=Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("METEO · "+location.name.uppercase(),fontSize=10.sp,fontWeight=FontWeight.Black,color=Blue,letterSpacing=1.1.sp)
+                    Text(
+                        if(day==23) "Riferimento costiero; la località finale resta quella scelta in base al meteo."
+                        else "Aggiornato quando apri l'app",
+                        fontSize=10.sp,color=Muted
+                    )
+                }
+                Text(weatherEmoji(state.value?.code ?: 0),fontSize=28.sp)
+            }
+            Spacer(Modifier.height(12.dp))
+            if(state.value==null) {
+                Text("Caricamento previsioni…",fontSize=13.sp,color=Muted)
+            } else {
+                val w=state.value!!
+                Row(horizontalArrangement=Arrangement.spacedBy(7.dp),modifier=Modifier.fillMaxWidth()) {
+                    Box(Modifier.weight(1f)){WeatherMetric(w.min.toInt().toString()+"°","min")}
+                    Box(Modifier.weight(1f)){WeatherMetric(w.max.toInt().toString()+"°","max")}
+                    Box(Modifier.weight(1f)){WeatherMetric(w.rainProbability.toString()+"%","pioggia")}
+                    Box(Modifier.weight(1f)){WeatherMetric(w.windMax.toString()+" km/h","vento max")}
+                }
+                Spacer(Modifier.height(10.dp))
+                Text(weatherLabel(w.code),fontSize=15.sp,fontWeight=FontWeight.ExtraBold,color=Navy)
+                Spacer(Modifier.height(8.dp))
+                LazyRow(horizontalArrangement=Arrangement.spacedBy(7.dp)) {
+                    items(w.hours) { h ->
+                        Surface(shape=RoundedCornerShape(13.dp),color=Sky) {
+                            Column(Modifier.padding(horizontal=10.dp,vertical=8.dp),horizontalAlignment=Alignment.CenterHorizontally) {
+                                Text(h.time,fontSize=10.sp,fontWeight=FontWeight.Black,color=Navy)
+                                Text(weatherEmoji(h.code),fontSize=17.sp)
+                                Text(h.temperature.toString()+"°",fontSize=11.sp,fontWeight=FontWeight.Bold)
+                                Text(h.rainProbability.toString()+"% · "+h.wind.toString()+" km/h",fontSize=8.sp,color=Muted)
+                            }
+                        }
+                    }
+                }
+                Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick={context.startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://open-meteo.com/")))}){Text("Fonte meteo")}
+                    TextButton(onClick={context.startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://www.meteoam.it/")))}){Text("MeteoAM")}
+                }
             }
         }
     }
 }
 
 @Composable
-fun PlaceRow(p:Place,n:Int) {
-    val context=LocalContext.current
-    Row(Modifier.fillMaxWidth().padding(vertical=4.dp),verticalAlignment=Alignment.CenterVertically) {
-        Text(String.format("%02d",n),fontSize=10.sp,fontWeight=FontWeight.Black,color=Muted,modifier=Modifier.width(28.dp))
-        Column(Modifier.weight(1f)) {
-            Text(p.name,fontSize=12.sp,fontWeight=FontWeight.Bold)
-            Text(p.detail,fontSize=10.sp,color=Muted)
+fun WeatherMetric(value:String,label:String) {
+    Surface(shape=RoundedCornerShape(13.dp),color=Color(0xFFF4F7FA),modifier=Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(9.dp)) {
+            Text(value,fontWeight=FontWeight.Black,fontSize=14.sp,color=Navy)
+            Text(label,fontSize=8.sp,color=Muted)
         }
-        IconButton(onClick={
-            val q=Uri.encode(p.name+" "+p.detail)
-            context.startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://www.google.com/maps/search/?api=1&query=$q")))
-        }) { Icon(Icons.Default.Place,"Maps",tint=Blue) }
     }
 }
 
@@ -517,50 +679,21 @@ fun PlaceRow(p:Place,n:Int) {
 fun Dining(modifier:Modifier,selected:Int) {
     val day=selected+21
     val data=mealData[day] ?: mealData[21]!!
-    var meal by rememberSaveable(day) { mutableIntStateOf(0) }
-    LazyColumn(modifier.fillMaxSize(),contentPadding=PaddingValues(16.dp,16.dp,16.dp,110.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
+    var meal by rememberSaveable(day){mutableIntStateOf(0)}
+    LazyColumn(modifier.fillMaxSize(),contentPadding=PaddingValues(16.dp,16.dp,16.dp,110.dp),verticalArrangement=Arrangement.spacedBy(11.dp)) {
         item {
-            Text("Dove mangiare",fontSize=29.sp,fontWeight=FontWeight.Black,color=Navy)
-            Text("Più scelta, ma regole nette: a pranzo street food incluso; la sera esclusivamente ristoranti.",fontSize=12.sp,color=Muted)
+            Text("Dove mangiare",fontSize=30.sp,fontWeight=FontWeight.Black,color=Navy)
+            Text("Proposte legate alla zona della giornata. Nessuna prenotazione incorporata: apri sito o Maps e scegli sul momento.",fontSize=12.sp,color=Muted)
         }
         item {
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                 SegmentedButton(meal==0,{meal=0},shape=SegmentedButtonDefaults.itemShape(0,2)){Text("Pranzo")}
-                SegmentedButton(meal==1,{meal=1},shape=SegmentedButtonDefaults.itemShape(1,2)){Text("Cena")}
+                SegmentedButton(meal==1,{meal=1},shape=SegmentedButtonDefaults.itemShape(1,2)){Text("Sera")}
             }
         }
         item {
             val list=if(meal==0)data.first else data.second
-            MealSection(if(meal==0) "PRANZO · STREET FOOD" else "SERA · SOLO RISTORANTI",list,if(meal==0) Sky else Sand)
-        }
-    }
-}
-
-@Composable
-fun Weather(modifier:Modifier) {
-    LazyColumn(modifier.fillMaxSize(),contentPadding=PaddingValues(16.dp,16.dp,16.dp,110.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-        item {
-            Card(shape=RoundedCornerShape(24.dp),colors=CardDefaults.cardColors(containerColor=Color.White)) {
-                Column(Modifier.padding(20.dp)) {
-                    Text("Meteo",fontSize=30.sp,fontWeight=FontWeight.Black,color=Navy)
-                    Text("Il 23/09 è la giornata di mare. La scelta della costa resta subordinata alle condizioni reali.",fontSize=12.sp,color=Muted)
-                    Spacer(Modifier.height(14.dp))
-                    Text("Quando sei online, questa sezione è il punto di controllo prima di uscire.",fontWeight=FontWeight.Bold,fontSize=13.sp)
-                }
-            }
-        }
-        item { WeatherCard("23 SET","MARE","Controllare pioggia + vento + mare") }
-        item { WeatherCard("24 SET","SAN CARLO","Arrivo a Napoli con margine") }
-        item { WeatherCard("27 SET","BARRA","Controllare viabilità e affluenza") }
-    }
-}
-@Composable
-fun WeatherCard(date:String,title:String,note:String) {
-    Card(shape=RoundedCornerShape(20.dp),colors=CardDefaults.cardColors(containerColor=Color.White)) {
-        Row(Modifier.padding(16.dp),verticalAlignment=Alignment.CenterVertically) {
-            Icon(Icons.Default.WbSunny,null,tint=Color(0xFFE39A28),modifier=Modifier.size(30.dp))
-            Spacer(Modifier.width(12.dp))
-            Column { Text(date,fontSize=10.sp,fontWeight=FontWeight.Black,color=Blue); Text(title,fontSize=17.sp,fontWeight=FontWeight.ExtraBold); Text(note,fontSize=10.sp,color=Muted) }
+            MealSection(if(meal==0) "PRANZO · STREET FOOD / VELOCE" else "SERA · RISTORANTI",list,if(meal==0) Sky else Sand)
         }
     }
 }
@@ -568,7 +701,11 @@ fun WeatherCard(date:String,title:String,note:String) {
 @Composable
 fun BottomBar(tab:Int,onTab:(Int)->Unit) {
     NavigationBar(containerColor=Color.White,windowInsets=WindowInsets.navigationBars) {
-        listOf(Icons.Default.Home to "Viaggio",Icons.Default.Event to "Giorno",Icons.Default.WbSunny to "Meteo",Icons.Default.Restaurant to "Mangiare").forEachIndexed { i,(icon,label) ->
+        listOf(
+            Icons.Default.Home to "Viaggio",
+            Icons.Default.Event to "Giorno",
+            Icons.Default.Restaurant to "Mangiare"
+        ).forEachIndexed { i,(icon,label) ->
             NavigationBarItem(selected=tab==i,onClick={onTab(i)},icon={Icon(icon,label)},label={Text(label,fontSize=9.sp)})
         }
     }
