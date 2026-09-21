@@ -280,6 +280,25 @@ val dayPhotos = mapOf(
   )
 )
 
+data class SeaOption(
+    val title:String,
+    val beach:String,
+    val parking:String,
+    val lunch:String,
+    val note:String,
+    val mapsQuery:String,
+    val lunchQuery:String,
+    val site:String? = null
+)
+
+val seaOptions = listOf(
+    SeaOption("Vico Equense · Baia Santa Margherita","Lido Baia Santa Margherita · spiaggia 08:00–19:00","Parcheggio dedicato del lido","Pranzo direttamente al bar/ristorante del lido","Soluzione semplice in auto: parcheggi, mare e pranzo nello stesso punto.","Lido Baia Santa Margherita, Vico Equense","Lido Baia Santa Margherita, Via Cristoforo Colombo, Vico Equense","https://www.lidobaiasantamargerita.it/"),
+    SeaOption("Sorrento · Marina Piccola / San Francesco","Peter's Beach / Leonelli's Beach","Sorrento Parking · Via S. Renato 23/5 oppure Central Parking","Porta Marina · pesce, direttamente in zona Marina Grande","Lascia l'auto in garage e scendi a piedi verso il mare; attenzione alla ZTL del centro.","Peter's Beach, Sorrento","Porta Marina, Via Marina Grande 64, Sorrento"),
+    SeaOption("Nerano · Marina del Cantone","Spiaggia di Marina del Cantone","Nerano Parking · Via Amerigo Vespucci 18/C","Ristorante Mary's da Luigi · pranzo in piazza a Marina del Cantone","Giornata mare più tranquilla; parcheggio custodito e ristorazione a pochi passi dalla spiaggia.","Spiaggia di Marina del Cantone, Nerano","Ristorante Mary's da Luigi, Piazza delle Sirene 5, Marina del Cantone"),
+    SeaOption("Positano · Fornillo","Fornillo Beach","Parcheggio MA.CRI. · Viale Pasitea 173","Fratelli Grassi Beach Bar · ristorante sulla spiaggia","Ottima formula mare + pranzo, ma strada e parcheggio richiedono più margine rispetto a Sorrento.","Fratelli Grassi beach club, Spiaggia di Fornillo, Positano","Fratelli Grassi beach club, Spiaggia di Fornillo, Positano","https://www.fratelligrassi.it/en/ristorante"),
+    SeaOption("Amalfi · giornata mare + centro","Spiaggia di Amalfi / Marina Grande","Parcheggio Luna Rossa · Via Pantaleone Comite 35","Taverna Buonvicino · pranzo in centro","Più impegnativa in auto, ma unisce mare e passeggiata ad Amalfi senza cambiare base.","Spiaggia di Amalfi, Amalfi","Taverna Buonvicino, Largo Santa Maria Maggiore 1, Amalfi")
+)
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -415,6 +434,12 @@ fun DayDetail(modifier:Modifier,selected:Int) {
         item { HeaderDay(d) }
         item { DayGallery(dayNumber) }
         item { WeatherInline(dayNumber) }
+        if(selected==1) {
+            item { TomorrowAfternoonOption() }
+        }
+        if(selected==2) {
+            item { SeaDayOptions() }
+        }
         item {
             if(selected==6) {
                 Card(shape=RoundedCornerShape(18.dp),colors=CardDefaults.cardColors(containerColor=Sand)) {
@@ -434,6 +459,85 @@ fun DayDetail(modifier:Modifier,selected:Int) {
         }
     }
 }
+
+
+@Composable
+fun SeaDayOptions() {
+    Column(verticalArrangement=Arrangement.spacedBy(10.dp)) {
+        Text("5 IDEE PER LA GIORNATA DI MARE",fontSize=11.sp,fontWeight=FontWeight.Black,color=Muted,letterSpacing=1.2.sp)
+        Text("Tutte pensate per chi parte in auto: mare + parcheggio + una soluzione pranzo già individuata.",fontSize=12.sp,color=Muted)
+        seaOptions.forEachIndexed { index, option ->
+            Card(shape=RoundedCornerShape(22.dp),colors=CardDefaults.cardColors(containerColor=Color.White)) {
+                Column(Modifier.padding(15.dp)) {
+                    Row(verticalAlignment=Alignment.CenterVertically) {
+                        Surface(shape=RoundedCornerShape(12.dp),color=if(index==0) Green else Sky) {
+                            Text((index+1).toString(),Modifier.padding(horizontal=11.dp,vertical=8.dp),fontWeight=FontWeight.Black,color=Navy)
+                        }
+                        Spacer(Modifier.width(10.dp))
+                        Text(option.title,fontSize=16.sp,fontWeight=FontWeight.ExtraBold,color=Navy)
+                    }
+                    Spacer(Modifier.height(9.dp))
+                    Text("MARE  ·  "+option.beach,fontSize=10.sp,fontWeight=FontWeight.Bold,color=Blue)
+                    Text("PARCHEGGIO  ·  "+option.parking,fontSize=10.sp,color=Muted)
+                    Text("PRANZO  ·  "+option.lunch,fontSize=10.sp,color=Muted)
+                    Spacer(Modifier.height(6.dp))
+                    Text(option.note,fontSize=11.sp,color=Muted)
+                    Row(horizontalArrangement=Arrangement.spacedBy(5.dp)) {
+                        val context=LocalContext.current
+                        TextButton(onClick={
+                            val q=Uri.encode(option.mapsQuery)
+                            context.startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://www.google.com/maps/search/?api=1&query="+q)))
+                        },contentPadding=PaddingValues(0.dp)) {
+                            Icon(Icons.Default.Place,null,modifier=Modifier.size(15.dp))
+                            Spacer(Modifier.width(3.dp))
+                            Text("Mare + parcheggio",fontSize=10.sp)
+                        }
+                        TextButton(onClick={
+                            val q=Uri.encode(option.lunchQuery)
+                            context.startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://www.google.com/maps/search/?api=1&query="+q)))
+                        },contentPadding=PaddingValues(0.dp)) {
+                            Icon(Icons.Default.Restaurant,null,modifier=Modifier.size(15.dp))
+                            Spacer(Modifier.width(3.dp))
+                            Text("Pranzo",fontSize=10.sp)
+                        }
+                        if(option.site!=null) {
+                            TextButton(onClick={context.startActivity(Intent(Intent.ACTION_VIEW,Uri.parse(option.site)))},contentPadding=PaddingValues(0.dp)) {
+                                Icon(Icons.Default.Language,null,modifier=Modifier.size(15.dp))
+                                Spacer(Modifier.width(3.dp))
+                                Text("Sito",fontSize=10.sp)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun TomorrowAfternoonOption() {
+    val context=LocalContext.current
+    Card(shape=RoundedCornerShape(22.dp),colors=CardDefaults.cardColors(containerColor=Rose)) {
+        Column(Modifier.padding(16.dp)) {
+            Text("OPZIONE PER DOMANI · 22 SET",fontSize=10.sp,fontWeight=FontWeight.Black,color=Navy,letterSpacing=1.2.sp)
+            Spacer(Modifier.height(4.dp))
+            Text("Napoli Sotterranea + Cimitero delle Fontanelle",fontSize=17.sp,fontWeight=FontWeight.ExtraBold,color=Navy)
+            Text("Non modifica ancora il programma fisso: è una proposta per concentrare entrambe le visite nel pomeriggio.",fontSize=11.sp,color=Muted)
+            Spacer(Modifier.height(8.dp))
+            Text("14:00 · Napoli Sotterranea  →  15:30 circa trasferimento  →  16:00 · Fontanelle",fontSize=12.sp,fontWeight=FontWeight.SemiBold)
+            Text("Per Fontanelle la prenotazione è obbligatoria e l'ultimo ingresso è 17:15.",fontSize=10.sp,color=Muted)
+            Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+                TextButton(onClick={context.startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://booking.napolisotterranea.org/")))},contentPadding=PaddingValues(0.dp)) { Text("Prenota Sotterranea",fontSize=10.sp) }
+                TextButton(onClick={context.startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://cimiterodellefontanelle.it/pianifica-visita/")))},contentPadding=PaddingValues(0.dp)) { Text("Prenota Fontanelle",fontSize=10.sp) }
+                TextButton(onClick={
+                    val q=Uri.encode("Garage Cavour Napoli Piazza Cavour 34")
+                    context.startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://www.google.com/maps/search/?api=1&query="+q)))
+                },contentPadding=PaddingValues(0.dp)) { Text("Parcheggio",fontSize=10.sp) }
+            }
+        }
+    }
+}
+
 
 @Composable
 fun HeaderDay(d:Day) {
