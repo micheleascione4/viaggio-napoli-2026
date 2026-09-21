@@ -18,14 +18,19 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 private val Navy = Color(0xFF0B2237)
 private val Blue = Color(0xFF247DB8)
@@ -53,24 +58,20 @@ val days = listOf(
 val mealData = mapOf(
   21 to Pair(
     listOf(
-      Place("Cuccuma Caffè","Pompei · colazione/pranzo rapido","street food"),
-      Place("Pizza a portafoglio","Napoli centro · soluzione veloce","street food"),
-      Place("Antica Pizzeria Di Matteo","Via dei Tribunali · pizza","street food"),
-      Place("L'Antica Pizzeria da Michele","Centro · pizza","street food"),
-      Place("Pizzeria Starita","Materdei · pizza","street food"),
-      Place("Pizzeria Pellone","Napoli · pizza","street food"),
-      Place("Mazz Bar","Chiaia · pausa informale","street food"),
-      Place("Tarallificio Leopoldo","Napoli · snack campani","street food")
+      Place("L'Antica Pizzeria Da Michele Pompei","Pompei · pranzo veloce","street food"),
+      Place("Na' Pasta","Pompei · pasta napoletana","street food"),
+      Place("Le Delizie Pompei","Pompei · pizza e fritti","street food"),
+      Place("Varnelli Pizza Bistrot & Restaurant","Pompei · pizza","street food"),
+      Place("Mercato Pompeiano","Pompei · pizza","street food"),
+      Place("Add'ù Mimi","Pompei · cucina napoletana veloce","street food")
     ),
     listOf(
-      Place("Cozzolino Braceria","Barra · carne","ristorante"),
-      Place("Da Alfredo","Via Traccia · cucina campana","ristorante"),
-      Place("Ermenegildo","Barra · pizzeria con servizio","ristorante"),
-      Place("Castello Showbiz","Via Luigi Volpicella · ristorante","ristorante"),
-      Place("Mimì alla Ferrovia","Napoli · cucina napoletana","ristorante"),
-      Place("Tandem","Napoli · cucina tradizionale","ristorante"),
-      Place("Trattoria Castel dell'Ovo","Napoli · cucina campana","ristorante"),
-      Place("Osteria della Mattonella","Chiaia · cucina napoletana","ristorante")
+      Place("Spinelli Bistrot","Piazza Bartolo Longo · ristorante","ristorante"),
+      Place("Varnelli Pizza Bistrot & Restaurant","Pompei · ristorante/pizzeria","ristorante"),
+      Place("Caupona","Pompei · cucina mediterranea","ristorante"),
+      Place("Bistrot Fratelli Cannavacciuolo","Pompei · cucina italiana e pesce","ristorante"),
+      Place("Stuzzicò by Lucius","Pompei · cucina italiana e pesce","ristorante"),
+      Place("Ristorante Il Principe","Pompei · cucina italiana e pesce","ristorante")
     )
   ),
   22 to Pair(
@@ -173,14 +174,12 @@ val mealData = mapOf(
       Place("Cuoppo napoletano","Centro · fritto","street food")
     ),
     listOf(
+      Place("La Locanda del Monacone","Rione Sanità · cucina napoletana","ristorante"),
+      Place("Vicus - Trattoria Napoletana","Rione Sanità · cucina napoletana","ristorante"),
       Place("Concettina ai Tre Santi","Sanità · pizzeria con servizio","ristorante"),
       Place("Starita","Materdei · pizza e cucina","ristorante"),
-      Place("Tandem","Centro · cucina napoletana","ristorante"),
-      Place("Mimì alla Ferrovia","Napoli · cucina campana","ristorante"),
-      Place("Osteria della Mattonella","Chiaia · cucina napoletana","ristorante"),
-      Place("Mattozzi","Centro · cucina campana","ristorante"),
-      Place("Antica Capri","Quartieri Spagnoli · cucina campana","ristorante"),
-      Place("Ristorante Umberto","Chiaia · cucina italiana","ristorante")
+      Place("La Locanda del Monacone","Sanità · ristorante","ristorante"),
+      Place("Vicus - Trattoria Napoletana","Sanità · cucina napoletana","ristorante")
     )
   ),
   27 to Pair(
@@ -195,14 +194,12 @@ val mealData = mapOf(
       Place("Panino napoletano","Napoli · snack","street food")
     ),
     listOf(
-      Place("Cozzolino Braceria","Barra · braceria","ristorante"),
-      Place("Da Alfredo","Via Traccia · cucina campana","ristorante"),
       Place("Ermenegildo","Barra · pizzeria con servizio","ristorante"),
-      Place("Castello Showbiz","Via Luigi Volpicella · ristorante","ristorante"),
-      Place("Mimì alla Ferrovia","Napoli · cucina campana","ristorante"),
-      Place("Tandem","Napoli · cucina tradizionale","ristorante"),
-      Place("Mattozzi","Napoli · cucina napoletana","ristorante"),
-      Place("Osteria della Mattonella","Chiaia · cucina napoletana","ristorante")
+      Place("Pub & Grill Cozzolino","Barra · ristorante","ristorante"),
+      Place("Pizzeria Mario dal 1970","Barra · pizzeria","ristorante"),
+      Place("Pizzeria Bisignano","Barra · pizzeria","ristorante"),
+      Place("Risto Pub Addu' Sabina","Barra · cucina informale","ristorante"),
+      Place("Trattoria Prisco","Barra · cucina campana","ristorante")
     )
   ),
   28 to Pair(
