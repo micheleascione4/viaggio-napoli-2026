@@ -1,0 +1,39 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Prepare web app
+        run: |
+          test -f VIAGGIO_NAPOLI_APP_COMPANION_v18.html
+          mkdir -p app/src/main/assets
+          cp VIAGGIO_NAPOLI_APP_COMPANION_v18.html app/src/main/assets/index.html
+
+      - name: Build debug APK
+        run: gradle --no-daemon :app:assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: viaggio-napoli-2026-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
