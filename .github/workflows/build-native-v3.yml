@@ -28,7 +28,9 @@ jobs:
           APK="app/build/outputs/apk/debug/app-debug.apk"
           test -f "$APK"
           echo "APK size: $(stat -c%s "$APK") bytes"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt2" dump badging "$APK" | tee /tmp/badging.txt
+          AAPT2="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name aapt2 | sort -V | tail -1)"
+          test -n "$AAPT2"
+          "$AAPT2" dump badging "$APK" | tee /tmp/badging.txt
           grep -q "package: name='com.example.viaggionapoli'" /tmp/badging.txt
           grep -q "launchable-activity" /tmp/badging.txt
           if unzip -l "$APK" | grep -Eq '(^|/)index\.html$|android_asset'; then
