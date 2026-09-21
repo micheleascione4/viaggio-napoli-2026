@@ -226,6 +226,58 @@ val mealData = mapOf(
   )
 )
 
+data class Photo(val url:String,val caption:String)
+data class WeatherLocation(val name:String,val lat:Double,val lon:Double)
+data class WeatherHour(val time:String,val temperature:Int,val rainProbability:Int,val wind:Int,val code:Int)
+data class WeatherDay(val code:Int,val max:Double,val min:Double,val rainProbability:Int,val windMax:Int,val hours:List<WeatherHour>)
+
+val dayLocations = mapOf(
+  21 to WeatherLocation("Napoli · Chiaia",40.8335,14.2240),
+  22 to WeatherLocation("Napoli · centro",40.8518,14.2681),
+  23 to WeatherLocation("Costa · riferimento Sorrento",40.6263,14.3754),
+  24 to WeatherLocation("Napoli · San Carlo",40.8394,14.2508),
+  25 to WeatherLocation("Pompei",40.7485,14.4848),
+  26 to WeatherLocation("Napoli · Sanità / Materdei",40.8678,14.2465),
+  27 to WeatherLocation("Napoli · Barra",40.8454,14.3094),
+  28 to WeatherLocation("Pompei · partenza",40.7485,14.4848)
+)
+
+val dayPhotos = mapOf(
+  21 to listOf(
+    Photo("https://a.travel-assets.com/findyours-php/viewfinder/images/res70/350000/350403-Via-Caracciolo-E-Lungomare-Di-Napoli.jpg","Lungomare di Napoli"),
+    Photo("https://images.partir.com/YqMH_FoyTAnkuOlJLo1HljcMJfs%3D/800x/ou-se-loger/italie-naples-hotel-spaccanapoli.jpg","Centro storico")
+  ),
+  22 to listOf(
+    Photo("https://ak-d.tripcdn.com/images/1mi2u224x9417qdv6BB1D.jpg?proc=source%2Ftrip","Via dei Tribunali"),
+    Photo("https://cosedinapoli.com/wp-content/uploads/2023/04/Palazzo-dAngio-5-scaled.jpeg","Strade del centro")
+  ),
+  23 to listOf(
+    Photo("https://cdn.blastness.biz/media/1254/top/thumbs/full/marina-grande-sorrento01-1920.jpg","Marina Grande · Sorrento"),
+    Photo("https://cdn2.civitatis.com/italia/napoles/galeria/positano-costa-amalfitana-napoles.jpg","Positano · Costiera")
+  ),
+  24 to listOf(
+    Photo("https://www.napolidavivere.it/wp-content/uploads/2025/02/WhatsApp-Image-2025-02-04-at-12.43.33.jpeg","Teatro San Carlo"),
+    Photo("https://www.codalario.com/datos/0/san_carlo357.jpg","Sala del San Carlo")
+  ),
+  25 to listOf(
+    Photo("https://thetravellingsquid.com/wp-content/uploads/2020/05/forum-pompeii.jpg","Foro di Pompei"),
+    Photo("https://www.carwiz.it/data/public/napoli/rsz_pompeii.jpg","Pompei e Vesuvio"),
+    Photo("https://bluekeys.it/assets/images/blog/pompeii-tour-from-sorrento.jpg","Strada colonnata")
+  ),
+  26 to listOf(
+    Photo("https://www.leisure-italy.com/wp-content/uploads/2018/11/Naples-Underground-Catacombe-di-S.Gennaro-1.jpg","Napoli sotterranea"),
+    Photo("https://commons.wikimedia.org/wiki/Special:FilePath/FontanelleNaples3.JPG?width=1200","Cimitero delle Fontanelle")
+  ),
+  27 to listOf(
+    Photo("https://www.photo4u.it/rep_upl/1506514985_71479_741997/o_1br1klgldra7r971p5h68hhr9k.jpg","Festa dei Gigli · Barra"),
+    Photo("https://cosedinapoli.com/wp-content/uploads/2023/04/Palazzo-dAngio-5-scaled.jpeg","Napoli")
+  ),
+  28 to listOf(
+    Photo("https://a.travel-assets.com/findyours-php/viewfinder/images/res70/350000/350403-Via-Caracciolo-E-Lungomare-Di-Napoli.jpg","Ultimo sguardo al Golfo"),
+    Photo("https://thetravellingsquid.com/wp-content/uploads/2020/05/forum-pompeii.jpg","Pompei")
+  )
+)
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
