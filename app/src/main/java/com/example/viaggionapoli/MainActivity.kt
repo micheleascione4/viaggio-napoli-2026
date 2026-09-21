@@ -31,6 +31,7 @@ private val Blue = Color(0xFF247DB8)
 private val Sky = Color(0xFFEAF4FA)
 private val Sand = Color(0xFFF4E8D5)
 private val Green = Color(0xFFE5F5F1)
+private val Rose = Color(0xFFF8E6E7)
 private val Ink = Color(0xFF16222D)
 private val Muted = Color(0xFF667788)
 
@@ -342,10 +343,26 @@ fun DayDetail(modifier:Modifier,selected:Int) {
         6 -> listOf("Pomeriggio · arrivo verso Barra","17:00 · orientamento in zona","18:00+ · seconda parte della Ballata","Sera · rientro")
         else -> listOf("Mattina · check-out","Giornata · rientro")
     }
+    val meals = mealData[selected+21]
     LazyColumn(modifier.fillMaxSize(),contentPadding=PaddingValues(16.dp,16.dp,16.dp,110.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
         item { HeaderDay(d) }
+        item {
+            if (selected==6) {
+                Card(shape=RoundedCornerShape(18.dp),colors=CardDefaults.cardColors(containerColor=Sand)) {
+                    Column(Modifier.padding(15.dp)) {
+                        Text("GIGLI · SERATA FINALE",fontSize=10.sp,fontWeight=FontWeight.Black,color=Navy,letterSpacing=1.2.sp)
+                        Spacer(Modifier.height(4.dp))
+                        Text("Seconda parte della Ballata dalle 18:00+",fontSize=15.sp,fontWeight=FontWeight.ExtraBold)
+                        Text("La cena può essere gestita sul posto, ma l'elenco serale resta composto esclusivamente da ristoranti.",fontSize=11.sp,color=Muted)
+                    }
+                }
+            }
+        }
         items(events) { EventRow(it) }
-        item { Spacer(Modifier.height(6.dp)); DiningPreview(selected+21) }
+        if (meals != null) {
+            item { Spacer(Modifier.height(6.dp)); MealSection("PRANZO · STREET FOOD + VELOCE",meals.first,Sky) }
+            item { MealSection("SERA · SOLO RISTORANTI",meals.second,Sand) }
+        }
     }
 }
 
