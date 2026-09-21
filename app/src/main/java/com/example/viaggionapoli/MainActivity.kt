@@ -292,8 +292,10 @@ fun Home(modifier:Modifier,selected:Int,onSelect:(Int)->Unit) {
                     Spacer(Modifier.height(6.dp))
                     Text("Programma, pasti, meteo e spostamenti sono organizzati per giornata. Layout nativo Android, pensato per S23 e display stretti.",color=Muted,fontSize=13.sp)
                     Spacer(Modifier.height(14.dp))
-                    Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                        Metric("1","giornata mare"); Metric("19:00","San Carlo"); Metric("18:00+","Gigli")
+                    Row(horizontalArrangement=Arrangement.spacedBy(8.dp), modifier=Modifier.fillMaxWidth()) {
+                        Box(Modifier.weight(1f)) { Metric("1","giornata mare") }
+                        Box(Modifier.weight(1f)) { Metric("19:00","San Carlo") }
+                        Box(Modifier.weight(1f)) { Metric("18:00+","Gigli") }
                     }
                 }
             }
@@ -307,7 +309,7 @@ fun Home(modifier:Modifier,selected:Int,onSelect:(Int)->Unit) {
 
 @Composable
 fun Metric(a:String,b:String) {
-    Surface(shape=RoundedCornerShape(14.dp),color=Sky,modifier=Modifier.weight(1f)) {
+    Surface(shape=RoundedCornerShape(14.dp),color=Sky,modifier=Modifier.fillMaxWidth()) {
         Column(Modifier.padding(10.dp)) { Text(a,fontWeight=FontWeight.Black,fontSize=17.sp,color=Navy); Text(b,fontSize=9.sp,color=Muted) }
     }
 }
