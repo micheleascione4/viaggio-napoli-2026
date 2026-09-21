@@ -1,5 +1,9 @@
 name: Build native Android APK
 
+concurrency:
+  group: native-v3-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   workflow_dispatch:
   push:
