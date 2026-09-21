@@ -30,9 +30,9 @@ jobs:
 
       - name: Prepare web app
         run: |
-          test -f VIAGGIO_NAPOLI_APP_COMPANION_v18.html
+          test -f VIAGGIO_NAPOLI_APP_COMPANION_v19.html
           mkdir -p app/src/main/assets
-          cp VIAGGIO_NAPOLI_APP_COMPANION_v18.html app/src/main/assets/index.html
+          cp VIAGGIO_NAPOLI_APP_COMPANION_v19.html app/src/main/assets/index.html
 
       - name: Build debug APK
         run: gradle --no-daemon :app:assembleDebug
@@ -45,5 +45,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: viaggio-napoli-2026-apk
+          name: viaggio-napoli-2026-apk-v19
           path: app/build/outputs/apk/debug/app-debug.apk
