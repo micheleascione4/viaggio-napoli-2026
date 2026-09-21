@@ -4,6 +4,8 @@ on:
   workflow_dispatch:
   push:
     branches: [native-v3-compose]
+  pull_request:
+    branches: [main]
 
 jobs:
   build:
