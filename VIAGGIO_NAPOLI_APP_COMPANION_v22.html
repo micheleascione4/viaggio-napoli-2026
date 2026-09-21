@@ -576,7 +576,7 @@ main{padding-top:17px;padding-bottom:110px}.hero{border-radius:28px;min-height:3
 <div class="trow"><div class="time">13:00–14:00</div><div class="node"><i></i></div><div class="event"><b>Pausa ricarica</b><span>Lasciamo al navigatore Tesla la scelta del Supercharger più conveniente.</span></div></div>
 <div class="trow"><div class="time">18:00–20:00</div><div class="node"><i></i></div><div class="event"><b>Chiaia</b><span>Passeggiata, lungomare, caffè/aperitivo e prima immersione a Napoli.</span></div></div>
 <div class="trow"><div class="time">20:00–21:15</div><div class="node"><i></i></div><div class="event"><b>Chiaia → Pompei</b><span>Rientro verso l'alloggio. La finestra può slittare in base al traffico.</span></div></div>
-<div class="trow"><div class="time">21:15+</div><div class="node"><i></i></div><div class="event"><b>Arrivo + cena libera</b><span>Parente, street food o ristorante a scelta.</span></div></div>
+<div class="trow"><div class="time">21:15+</div><div class="node"><i></i></div><div class="event"><b>Arrivo + cena libera</b><span>Parente o ristorante a scelta.</span></div></div>
 </div></section>
 <div class="note blue"><b>Nota:</b> Chiaia è stata inserita nel tardo pomeriggio del 21. Se il viaggio arriva lungo, tagliate Chiaia senza toccare il programma dei giorni successivi.</div>
 </section>
@@ -1176,7 +1176,7 @@ const MEAL_OPTIONS={
    ]},
    dinner:{title:"Cena · Barra durante i Gigli",note:"La manifestazione può cambiare affluenza e viabilità: se preferite, mangiate direttamente tra gli stand. Qui sotto trovi comunque cinque posti concreti in zona, tutti coerenti con la sera di Barra.",items:[
     ["Cozzolino Braceria","Corso Bruno Buozzi · braceria", "ristorante"],
-    ["Bavaro Ò Murzill' Sapurit","Via delle Repubbliche Marinare; panini e soluzione informale", "street food"],
+    ["Da Alfredo","Via Traccia · cucina campana", "ristorante"],
     ["Ermenegildo","Viale 2 Giugno; pizzeria con servizio serale", "pizza"],
     ["Castello Showbiz","Via Luigi Volpicella · pizzeria/ristorante", "ristorante"],
     ["Castello Showbiz","Via Luigi Volpicella; ristorante aperto fino a tardi", "ristorante"]
@@ -1215,7 +1215,7 @@ function renderMeals(){
     const view=document.getElementById('view-giorno-'+day); if(!view) return;
     const old=view.querySelector('.meals-card'); if(old) old.remove();
     const box=document.createElement('section'); box.className='card meals-card';
-    let html='<div class="meal-head"><div><h2>🍴 Dove mangiare</h2><p>5 posti concreti scelti in funzione dell\'itinerario · puoi scegliere anche <b>mangio da un parente</b>. Orari e disponibilità possono cambiare: verifica Maps il giorno stesso.</p></div><div class="meal-selected" id="meal-sel-'+day+'">nessuna scelta</div></div>';
+    let html='<div class="meal-head"><div><h2>🍴 Dove mangiare</h2><p>5 proposte per pasto · street food solo a pranzo · sera solo ristoranti.</p></div><div class="meal-selected" id="meal-sel-'+day+'">nessuna scelta</div></div>';
     ['lunch','dinner'].forEach((meal,i)=>{
       const d=MEAL_OPTIONS[day][meal];
       const key=day+'-'+meal; const sel=state[key]||'';
