@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
     <application
-        android:theme="@android:style/Theme.Material.NoActionBar"
+        android:theme="@style/Theme.ViaggioNapoli"
         android:label="@string/app_name"
         android:icon="@drawable/ic_launcher"
         android:roundIcon="@drawable/ic_launcher"
