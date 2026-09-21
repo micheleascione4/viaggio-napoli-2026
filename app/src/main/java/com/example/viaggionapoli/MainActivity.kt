@@ -290,26 +290,25 @@ class MainActivity : ComponentActivity() {
 fun App() {
     MaterialTheme(
         colorScheme = lightColorScheme(
-            primary = Navy, secondary = Blue, background = Color(0xFFF4F7FA),
-            surface = Color.White, onSurface = Ink
+            primary=Navy, secondary=Blue, background=Color(0xFFF4F7FA),
+            surface=Color.White, onSurface=Ink
         ),
-        typography = Typography(
-            headlineLarge = LocalTextStyle.current.copy(fontSize = 30.sp, fontWeight = FontWeight.Black),
-            titleLarge = LocalTextStyle.current.copy(fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+        typography=Typography(
+            headlineLarge=androidx.compose.ui.text.TextStyle(fontSize=30.sp,fontWeight=FontWeight.Black),
+            titleLarge=androidx.compose.ui.text.TextStyle(fontSize=20.sp,fontWeight=FontWeight.ExtraBold)
         )
     ) {
         var selected by rememberSaveable { mutableIntStateOf(0) }
         var tab by rememberSaveable { mutableIntStateOf(0) }
         Scaffold(
-            containerColor = Color(0xFFF4F7FA),
-            topBar = { AppTopBar() },
-            bottomBar = { BottomBar(tab) { tab = it } }
+            containerColor=Color(0xFFF4F7FA),
+            topBar={AppTopBar()},
+            bottomBar={BottomBar(tab){tab=it}}
         ) { pad ->
             when(tab) {
-                0 -> Home(Modifier.padding(pad), selected) { selected = it }
-                1 -> DayDetail(Modifier.padding(pad), selected)
-                2 -> Weather(Modifier.padding(pad))
-                else -> Dining(Modifier.padding(pad), selected)
+                0 -> Home(Modifier.padding(pad),selected){ selected=it; tab=1 }
+                1 -> DayDetail(Modifier.padding(pad),selected)
+                else -> Dining(Modifier.padding(pad),selected)
             }
         }
     }
@@ -334,50 +333,63 @@ fun AppTopBar() {
 
 @Composable
 fun Home(modifier:Modifier,selected:Int,onSelect:(Int)->Unit) {
-    LazyColumn(modifier.fillMaxSize(), contentPadding=PaddingValues(16.dp,16.dp,16.dp,110.dp), verticalArrangement=Arrangement.spacedBy(12.dp)) {
+    LazyColumn(modifier.fillMaxSize(),contentPadding=PaddingValues(16.dp,16.dp,16.dp,110.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
         item {
-            Card(colors=CardDefaults.cardColors(containerColor=Color.White),shape=RoundedCornerShape(26.dp)) {
+            Card(shape=RoundedCornerShape(28.dp),colors=CardDefaults.cardColors(containerColor=Color.White)) {
                 Column(Modifier.padding(20.dp)) {
-                    Text("Il viaggio, senza attrito.",fontSize=28.sp,fontWeight=FontWeight.Black,color=Navy)
+                    Text("Il viaggio, in riquadri.",fontSize=29.sp,fontWeight=FontWeight.Black,color=Navy)
                     Spacer(Modifier.height(6.dp))
-                    Text("Programma, pasti, meteo e spostamenti sono organizzati per giornata. Layout nativo Android, pensato per S23 e display stretti.",color=Muted,fontSize=13.sp)
-                    Spacer(Modifier.height(14.dp))
-                    Row(horizontalArrangement=Arrangement.spacedBy(8.dp), modifier=Modifier.fillMaxWidth()) {
-                        Box(Modifier.weight(1f)) { Metric("1","giornata mare") }
-                        Box(Modifier.weight(1f)) { Metric("19:00","San Carlo") }
-                        Box(Modifier.weight(1f)) { Metric("18:00+","Gigli") }
+                    Text("Foto, meteo live e proposte in zona. L'itinerario resta quello semi-definitivo.",color=Muted,fontSize=13.sp)
+                    Spacer(Modifier.height(16.dp))
+                    Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()) {
+                        StatPill("1","giornata mare")
+                        StatPill("19:00","San Carlo")
+                        StatPill("18:00+","Gigli")
                     }
                 }
             }
         }
         item { Text("ITINERARIO",fontSize=11.sp,fontWeight=FontWeight.Black,color=Muted,letterSpacing=1.3.sp) }
-        items(days.indices.toList()) { i ->
-            DayCard(days[i],i==selected) { onSelect(i) }
+        items(days.indices.toList()) { i -> DayCard(days[i],i==selected){onSelect(i)} }
+    }
+}
+
+@Composable
+fun RowScope.StatPill(value:String,label:String) {
+    Surface(shape=RoundedCornerShape(15.dp),color=Sky,modifier=Modifier.weight(1f)) {
+        Column(Modifier.padding(10.dp)) {
+            Text(value,fontWeight=FontWeight.Black,fontSize=16.sp,color=Navy)
+            Text(label,fontSize=9.sp,color=Muted,maxLines=1)
         }
     }
 }
 
 @Composable
-fun Metric(a:String,b:String) {
-    Surface(shape=RoundedCornerShape(14.dp),color=Sky,modifier=Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(10.dp)) { Text(a,fontWeight=FontWeight.Black,fontSize=17.sp,color=Navy); Text(b,fontSize=9.sp,color=Muted) }
-    }
-}
-
-@Composable
 fun DayCard(day:Day,active:Boolean,onClick:()->Unit) {
-    Card(onClick=onClick,shape=RoundedCornerShape(20.dp),colors=CardDefaults.cardColors(containerColor=Color.White),
+    val dayNumber=21+days.indexOf(day)
+    val photos=dayPhotos[dayNumber].orEmpty()
+    Card(onClick=onClick,shape=RoundedCornerShape(22.dp),colors=CardDefaults.cardColors(containerColor=Color.White),
         border=if(active) androidx.compose.foundation.BorderStroke(2.dp,day.accent) else null) {
-        Row(Modifier.padding(15.dp),verticalAlignment=Alignment.CenterVertically) {
-            Surface(shape=RoundedCornerShape(14.dp),color=day.accent.copy(alpha=.14f)) {
-                Text(day.date,Modifier.padding(horizontal=10.dp,vertical=9.dp),fontSize=10.sp,fontWeight=FontWeight.Black,color=Navy)
+        Column {
+            if(photos.isNotEmpty()) {
+                Row(Modifier.fillMaxWidth().height(120.dp)) {
+                    AsyncImage(model=photos[0].url,contentDescription=photos[0].caption,contentScale=ContentScale.Crop,modifier=Modifier.weight(1.35f).fillMaxHeight())
+                    if(photos.size>1) {
+                        AsyncImage(model=photos[1].url,contentDescription=photos[1].caption,contentScale=ContentScale.Crop,modifier=Modifier.weight(1f).fillMaxHeight())
+                    }
+                }
             }
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(day.title,fontSize=16.sp,fontWeight=FontWeight.ExtraBold)
-                Text(day.subtitle,fontSize=11.sp,color=Muted,maxLines=2,overflow=TextOverflow.Ellipsis)
+            Row(Modifier.padding(15.dp),verticalAlignment=Alignment.CenterVertically) {
+                Surface(shape=RoundedCornerShape(14.dp),color=day.accent.copy(alpha=.14f)) {
+                    Text(day.date,Modifier.padding(horizontal=10.dp,vertical=9.dp),fontSize=10.sp,fontWeight=FontWeight.Black,color=Navy)
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(day.title,fontSize=16.sp,fontWeight=FontWeight.ExtraBold)
+                    Text(day.subtitle,fontSize=11.sp,color=Muted,maxLines=2,overflow=TextOverflow.Ellipsis)
+                }
+                Icon(Icons.Default.ChevronRight,null,tint=Muted)
             }
-            Icon(Icons.Default.ChevronRight,null,tint=Muted)
         }
     }
 }
@@ -385,7 +397,8 @@ fun DayCard(day:Day,active:Boolean,onClick:()->Unit) {
 @Composable
 fun DayDetail(modifier:Modifier,selected:Int) {
     val d=days[selected]
-    val events = when(selected) {
+    val dayNumber=selected+21
+    val events=when(selected) {
         0 -> listOf("11:00 · Partenza da Cervia","13:00–14:00 · Pausa ricarica","18:00–20:00 · Chiaia","20:00–21:15 · Chiaia → Pompei","21:15+ · Arrivo + cena")
         1 -> listOf("Mattina · Napoli centro","11:30 · Giacca + camicia","Pomeriggio · Spaccanapoli / Tribunali","Sera · cena in ristorante")
         2 -> listOf("Mattina · partenza per il mare","Giornata · mare e relax","Sera · rientro")
@@ -395,36 +408,54 @@ fun DayDetail(modifier:Modifier,selected:Int) {
         6 -> listOf("Pomeriggio · arrivo verso Barra","17:00 · orientamento in zona","18:00+ · seconda parte della Ballata","Sera · rientro")
         else -> listOf("Mattina · check-out","Giornata · rientro")
     }
-    val meals = mealData[selected+21]
-    LazyColumn(modifier.fillMaxSize(),contentPadding=PaddingValues(16.dp,16.dp,16.dp,110.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
+    val meals=mealData[dayNumber]
+    LazyColumn(modifier.fillMaxSize(),contentPadding=PaddingValues(16.dp,16.dp,16.dp,110.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
         item { HeaderDay(d) }
+        item { DayGallery(dayNumber) }
+        item { WeatherInline(dayNumber) }
         item {
-            if (selected==6) {
+            if(selected==6) {
                 Card(shape=RoundedCornerShape(18.dp),colors=CardDefaults.cardColors(containerColor=Sand)) {
                     Column(Modifier.padding(15.dp)) {
                         Text("GIGLI · SERATA FINALE",fontSize=10.sp,fontWeight=FontWeight.Black,color=Navy,letterSpacing=1.2.sp)
                         Spacer(Modifier.height(4.dp))
                         Text("Seconda parte della Ballata dalle 18:00+",fontSize=15.sp,fontWeight=FontWeight.ExtraBold)
-                        Text("La cena può essere gestita sul posto, ma l'elenco serale resta composto esclusivamente da ristoranti.",fontSize=11.sp,color=Muted)
+                        Text("La giornata resta dedicata alla parte finale dell'evento, senza aggiungere tappe.",fontSize=11.sp,color=Muted)
                     }
                 }
             }
         }
-        items(events) { EventRow(it) }
-        if (meals != null) {
-            item { Spacer(Modifier.height(6.dp)); MealSection("PRANZO · STREET FOOD + VELOCE",meals.first,Sky) }
-            item { MealSection("SERA · SOLO RISTORANTI",meals.second,Sand) }
+        items(events){EventRow(it)}
+        if(meals!=null) {
+            item { MealSection("PRANZO · PROPOSTE IN ZONA",meals.first,Sky) }
+            item { MealSection("SERA · PROPOSTE IN ZONA",meals.second,Sand) }
         }
     }
 }
 
 @Composable
 fun HeaderDay(d:Day) {
-    Card(shape=RoundedCornerShape(24.dp),colors=CardDefaults.cardColors(containerColor=Color.White)) {
+    Card(shape=RoundedCornerShape(26.dp),colors=CardDefaults.cardColors(containerColor=Color.White)) {
         Column(Modifier.padding(20.dp)) {
             Text(d.date,color=Blue,fontSize=10.sp,fontWeight=FontWeight.Black,letterSpacing=1.3.sp)
-            Text(d.title,fontSize=27.sp,fontWeight=FontWeight.Black,color=Navy)
+            Text(d.title,fontSize=28.sp,fontWeight=FontWeight.Black,color=Navy)
             Text(d.subtitle,color=Muted,fontSize=12.sp)
+        }
+    }
+}
+
+@Composable
+fun DayGallery(day:Int) {
+    val photos=dayPhotos[day].orEmpty()
+    if(photos.isEmpty()) return
+    LazyRow(horizontalArrangement=Arrangement.spacedBy(10.dp),contentPadding=PaddingValues(end=4.dp)) {
+        items(photos) { p ->
+            Box(Modifier.width(250.dp).height(155.dp).clip(RoundedCornerShape(20.dp))) {
+                AsyncImage(model=p.url,contentDescription=p.caption,contentScale=ContentScale.Crop,modifier=Modifier.fillMaxSize())
+                Surface(color=Color.Black.copy(alpha=.45f),modifier=Modifier.align(Alignment.BottomStart)) {
+                    Text(p.caption,color=Color.White,fontSize=10.sp,fontWeight=FontWeight.Bold,modifier=Modifier.padding(horizontal=9.dp,vertical=7.dp))
+                }
+            }
         }
     }
 }
