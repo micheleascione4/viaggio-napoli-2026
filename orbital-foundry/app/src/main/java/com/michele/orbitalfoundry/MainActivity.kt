@@ -52,7 +52,7 @@ enum class PartType(
     CAPSULE("Crew Capsule","◉",3.5,0.0,0.0,Cyan),
     PROBE_CORE("Probe Core","◈",0.8,0.0,0.0,Color(0xFF8AD4FF)),
     TANK("Fuel Tank","▣",4.0,24.0,0.0,Color(0xFF6C7BFF)),
-    ENGINE("Merlin-class Engine","▲",2.5,0.0,950.0,Orange,360.0),
+    ENGINE("Vector Engine","▲",3.2,0.0,1250.0,Orange,360.0),
     DECOUPLER("Stage Decoupler","⊙",0.8,0.0,0.0,Red),
     FIN("Control Fins","⌁",1.0,0.0,0.0,Green),
     PARACHUTE("Recovery Parachute","⬙",1.2,0.0,0.0,Color(0xFFFF7D90)),
@@ -184,8 +184,13 @@ private fun addPartInUsefulPosition(rocket:Rocket,part:PartType):Rocket{
     when(part){
         PartType.DECOUPLER->{ return addUpperStage(rocket) }
         PartType.TANK,PartType.ENGINE,PartType.FIN->list.add(part)
+        PartType.DOCKING_PORT,PartType.RCS,PartType.PROBE_CORE,PartType.SOLAR,PartType.PARACHUTE,PartType.HEATSHIELD,PartType.LANDING_LEGS->{
+            val firstTank=list.indexOfFirst{it==PartType.TANK}
+            val insertAt=if(firstTank>=0)firstTank else list.size
+            list.add(insertAt,part)
+        }
         else->{
-            val insertAt=list.indexOfFirst{it==PartType.DECOUPLER}.let{if(it<0)list.size else it}
+            val insertAt=list.indexOfFirst{it==PartType.TANK}.let{if(it<0)list.size else it}
             list.add(insertAt,part)
         }
     }
