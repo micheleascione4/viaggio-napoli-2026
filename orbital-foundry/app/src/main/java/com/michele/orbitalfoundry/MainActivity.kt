@@ -195,7 +195,7 @@ fun OrbitalFoundryApp(showTutorialOnStart:Boolean,onTutorialComplete:()->Unit){
 private fun requiredTech(part:PartType):String?=when(part){
     PartType.NOSE->null
     PartType.CAPSULE,PartType.PARACHUTE,PartType.HEATSHIELD->"capsule"
-    PartType.TANK,PartType.ION_TANK->if(part==PartType.ION_TANK)"ion" else "small_tank"
+    PartType.TANK->"small_tank"
     PartType.ENGINE,PartType.DECOUPLER,PartType.FIN->"starter_engine"
     PartType.VACUUM_ENGINE->"vacuum"
     PartType.HEAVY_ENGINE->"heavy"
