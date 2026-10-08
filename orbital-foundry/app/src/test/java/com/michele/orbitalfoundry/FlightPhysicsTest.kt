@@ -70,14 +70,12 @@ class FlightPhysicsTest {
     }
 
     @Test
-    fun defaultVehicleHasPositiveDeltaVAndUsableThrust() {
-        val starter = Rocket(listOf(
-            PartType.NOSE, PartType.CAPSULE, PartType.HEATSHIELD, PartType.PARACHUTE,
-            PartType.TANK, PartType.ENGINE, PartType.DECOUPLER, PartType.TANK, PartType.ENGINE, PartType.FIN
-        ))
-
-        assertTrue(starter.deltaV > 0.0)
-        assertTrue(activeStageParts(starter.parts).sumOf { it.thrust } > 0.0)
+    fun defaultVehicleHasOrbitalDeltaVAndLiftoffTwr() {
+        val starter = starterRocket()
+        val analysis = analyzeVehicle(starter)
+        assertTrue("Starter vehicle should budget over 10 km/s of vacuum delta-v", starter.deltaV > 10.0)
+        assertTrue("The active first stage should lift off", analysis.twr > 1.2)
         assertTrue(starter.fuel > 0.0)
+        assertEquals(4, starter.parts.count { it == PartType.DECOUPLER } + 1)
     }
-}
+}}
