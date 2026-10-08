@@ -711,24 +711,24 @@ private fun BuilderScreen(
     val density=androidx.compose.ui.platform.LocalDensity.current.density
     val sideMargin=with(androidx.compose.ui.platform.LocalDensity.current){78.dp.toPx()}
     val rightMargin=with(androidx.compose.ui.platform.LocalDensity.current){78.dp.toPx()}
-    Box(Modifier.fillMaxSize().background(Color(0xFFE4ECF4)).onGloballyPositioned{rootBounds=it.boundsInWindow()}){
+    Box(Modifier.fillMaxSize().background(Color(0xFF07111F)).onGloballyPositioned{rootBounds=it.boundsInWindow()}){
         Column(Modifier.fillMaxSize()){
-            Row(Modifier.fillMaxWidth().heightIn(min=49.dp).background(Color(0xFF345F85)).padding(horizontal=9.dp,vertical=4.dp),verticalAlignment=Alignment.CenterVertically){
-                Surface(color=Color(0x334A83B5),shape=RoundedCornerShape(6.dp),modifier=Modifier.clickable{onBack()}){
+            Row(Modifier.fillMaxWidth().heightIn(min=49.dp).background(Color(0xFF0B1B2D)).padding(horizontal=9.dp,vertical=4.dp),verticalAlignment=Alignment.CenterVertically){
+                Surface(color=Color(0xFF142B40),shape=RoundedCornerShape(6.dp),modifier=Modifier.clickable{onBack()}){
                     Text("‹",fontSize=30.sp,color=Color.White,modifier=Modifier.padding(horizontal=9.dp,vertical=1.dp))
                 }
                 Column(Modifier.weight(1f).padding(start=8.dp)){
                     Text("ROCKET BUILDER",fontSize=14.sp,fontWeight=FontWeight.Black,lineHeight=17.sp,color=Color.White)
                     Text(if(sandboxMode)"SANDBOX · ALL PARTS FREE" else "CAREER · BUILD WITH UNLOCKED PARTS",fontSize=9.sp,color=Color(0xFFD2E7F8),lineHeight=12.sp)
                 }
-                Button(onClick=onLaunch,enabled=rocket.hasEngine&&rocket.hasCapsule,modifier=Modifier.height(39.dp),shape=RoundedCornerShape(7.dp),contentPadding=PaddingValues(horizontal=11.dp,vertical=5.dp),colors=ButtonDefaults.buttonColors(containerColor=Color(0xFFE7F1F9),contentColor=Color(0xFF183650))){
+                Button(onClick=onLaunch,enabled=rocket.hasEngine&&rocket.hasCapsule,modifier=Modifier.height(39.dp),shape=RoundedCornerShape(7.dp),contentPadding=PaddingValues(horizontal=11.dp,vertical=5.dp),colors=ButtonDefaults.buttonColors(containerColor=Color(0xFF45D7FF),contentColor=Color(0xFF061321))){
                     Text("LAUNCH  ▶",fontSize=10.sp,fontWeight=FontWeight.Black)
                 }
             }
             Box(Modifier.weight(1f).fillMaxWidth().background(Color(0xFF4D80B4)).onGloballyPositioned{viewportBounds=it.boundsInWindow()}){
                 RocketStackPreview(rocket,Modifier.fillMaxSize(),onReorder=onMove)
-                Column(Modifier.align(Alignment.CenterStart).width(78.dp).fillMaxHeight().background(Color(0xEAF0F5FA)).padding(horizontal=4.dp,vertical=5.dp)){
-                    Text("PARTS",fontSize=9.sp,fontWeight=FontWeight.Black,color=Color(0xFF356B9D),modifier=Modifier.align(Alignment.CenterHorizontally).padding(bottom=5.dp))
+                Column(Modifier.align(Alignment.CenterStart).width(78.dp).fillMaxHeight().background(Color(0xF20B1B2D)).padding(horizontal=4.dp,vertical=5.dp)){
+                    Text("PARTS",fontSize=9.sp,fontWeight=FontWeight.Black,color=Color(0xFF45D7FF),modifier=Modifier.align(Alignment.CenterHorizontally).padding(bottom=5.dp))
                     LazyColumn(verticalArrangement=Arrangement.spacedBy(4.dp),modifier=Modifier.fillMaxSize()){
                         items(PartType.entries.toList(),key={it.name}){part->
                             val available=isPartUnlocked(part,effectiveUnlocked)
@@ -758,30 +758,30 @@ private fun BuilderScreen(
                                 )
                             }else Modifier
                             Surface(
-                                color=if(available)Color(0xFFF9FCFE) else Color(0xFFD2DDE7),
+                                color=if(available)Color(0xFF14283B) else Color(0xFF101A27),
                                 shape=RoundedCornerShape(7.dp),
                                 modifier=Modifier.fillMaxWidth().height(65.dp).onGloballyPositioned{itemCoordinates=it}.then(dragModifier)
                                     .clickable(enabled=available){onAdd(part)}
-                                    .border(1.dp,if(available)Color(0xFFB8CDE0) else Color(0xFFC4CED7),RoundedCornerShape(7.dp))
+                                    .border(1.dp,if(available)Color(0xFF2B4A63) else Color(0xFF202D3A),RoundedCornerShape(7.dp))
                             ){
                                 Column(horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.Center,modifier=Modifier.fillMaxWidth().padding(vertical=1.dp)){
                                     RocketPartThumbnail(part)
-                                    Text(if(available)part.title else "LOCKED",fontSize=7.sp,lineHeight=8.sp,maxLines=2,textAlign=androidx.compose.ui.text.style.TextAlign.Center,color=if(available)Color(0xFF263F54) else Color(0xFF7F8994),fontWeight=FontWeight.Bold,modifier=Modifier.padding(horizontal=2.dp))
+                                    Text(if(available)part.title else "LOCKED",fontSize=7.sp,lineHeight=8.sp,maxLines=2,textAlign=androidx.compose.ui.text.style.TextAlign.Center,color=if(available)Color(0xFFE7F2FC) else Color(0xFF68788A),fontWeight=FontWeight.Bold,modifier=Modifier.padding(horizontal=2.dp))
                                 }
                             }
                         }
                     }
                 }
-                Surface(color=Color(0xEAF0F5FA),shape=RoundedCornerShape(topStart=7.dp,bottomStart=7.dp),modifier=Modifier.align(Alignment.CenterEnd).padding(end=5.dp)){
+                Surface(color=Color(0xF20B1B2D),shape=RoundedCornerShape(topStart=7.dp,bottomStart=7.dp),modifier=Modifier.align(Alignment.CenterEnd).padding(end=5.dp)){
                     Column(Modifier.padding(horizontal=7.dp,vertical=8.dp),horizontalAlignment=Alignment.End){
-                        Text("MASS",fontSize=8.sp,color=Color(0xFF60758A),fontWeight=FontWeight.Black)
-                        Text("%.1f t".format(rocket.dryMass+rocket.fuel),fontSize=12.sp,fontWeight=FontWeight.Black,color=Color(0xFF1F354B))
+                        Text("MASS",fontSize=8.sp,color=Color(0xFF8DA6BC),fontWeight=FontWeight.Black)
+                        Text("%.1f t".format(rocket.dryMass+rocket.fuel),fontSize=12.sp,fontWeight=FontWeight.Black,color=Color(0xFFF1F7FF))
                         Spacer(Modifier.height(4.dp))
                         Text("T / W",fontSize=8.sp,color=Color(0xFF60758A),fontWeight=FontWeight.Black)
-                        Text("%.2f".format(analyzeVehicle(rocket).twr),fontSize=12.sp,fontWeight=FontWeight.Black,color=if(analyzeVehicle(rocket).twr>=1.2)Color(0xFF217C57) else Color(0xFFB56B1C))
+                        Text("%.2f".format(analyzeVehicle(rocket).twr),fontSize=12.sp,fontWeight=FontWeight.Black,color=if(analyzeVehicle(rocket).twr>=1.2)Color(0xFF45E0A8) else Color(0xFFFFB74D))
                         Spacer(Modifier.height(4.dp))
                         Text("ΔV",fontSize=8.sp,color=Color(0xFF60758A),fontWeight=FontWeight.Black)
-                        Text("%.1f".format(rocket.deltaV),fontSize=12.sp,fontWeight=FontWeight.Black,color=Color(0xFF246DA5))
+                        Text("%.1f".format(rocket.deltaV),fontSize=12.sp,fontWeight=FontWeight.Black,color=Color(0xFF45D7FF))
                     }
                 }
                 Text("TOP  ↑",modifier=Modifier.align(Alignment.TopCenter).padding(top=8.dp),fontSize=9.sp,color=Color(0xEFFFFFFF),fontWeight=FontWeight.Black)
@@ -789,9 +789,9 @@ private fun BuilderScreen(
                     Text("Drag parts here · drag the rocket to reorder",modifier=Modifier.align(Alignment.BottomCenter).padding(bottom=8.dp).background(Color(0x88273F58),RoundedCornerShape(5.dp)).padding(horizontal=7.dp,vertical=4.dp),fontSize=8.sp,color=Color.White)
                 }
             }
-            Row(horizontalArrangement=Arrangement.spacedBy(6.dp),verticalAlignment=Alignment.CenterVertically,modifier=Modifier.fillMaxWidth().background(Color(0xFFE4ECF4)).padding(horizontal=7.dp,vertical=5.dp)){
-                Text("${rocket.parts.size} PARTS",color=Color(0xFF526A80),fontSize=9.sp,fontWeight=FontWeight.Black,modifier=Modifier.weight(1f))
-                OutlinedButton(onClick={showStack=true},contentPadding=PaddingValues(horizontal=8.dp,vertical=7.dp),shape=RoundedCornerShape(7.dp),colors=ButtonDefaults.outlinedButtonColors(contentColor=Color(0xFF253F56))){Text("STACK",fontWeight=FontWeight.Black,fontSize=9.sp)}
+            Row(horizontalArrangement=Arrangement.spacedBy(6.dp),verticalAlignment=Alignment.CenterVertically,modifier=Modifier.fillMaxWidth().background(Color(0xFF0B1B2D)).padding(horizontal=7.dp,vertical=5.dp)){
+                Text("${rocket.parts.size} PARTS",color=Color(0xFF8DA6BC),fontSize=9.sp,fontWeight=FontWeight.Black,modifier=Modifier.weight(1f))
+                OutlinedButton(onClick={showStack=true},contentPadding=PaddingValues(horizontal=8.dp,vertical=7.dp),shape=RoundedCornerShape(7.dp),colors=ButtonDefaults.outlinedButtonColors(contentColor=Color(0xFF45D7FF))){Text("STACK",fontWeight=FontWeight.Black,fontSize=9.sp)}
                 OutlinedButton(onClick=onAddStage,contentPadding=PaddingValues(horizontal=8.dp,vertical=7.dp),shape=RoundedCornerShape(7.dp),colors=ButtonDefaults.outlinedButtonColors(contentColor=Color(0xFF253F56))){Text("+ STAGE",fontWeight=FontWeight.Black,fontSize=9.sp)}
                 OutlinedButton(onClick=onClear,contentPadding=PaddingValues(horizontal=8.dp,vertical=7.dp),shape=RoundedCornerShape(7.dp),colors=ButtonDefaults.outlinedButtonColors(contentColor=Color(0xFF253F56))){Text("RESET",fontWeight=FontWeight.Black,fontSize=9.sp)}
             }
@@ -802,7 +802,7 @@ private fun BuilderScreen(
             Box(Modifier.offset{IntOffset((point.x-root.left-38f).roundToInt(),(point.y-root.top-42f).roundToInt())}.zIndex(5f).width(76.dp).height(84.dp).background(Color(0xF7F9FCFE),RoundedCornerShape(9.dp)).border(2.dp,Color(0xFF3479B5),RoundedCornerShape(9.dp)),contentAlignment=Alignment.Center){
                 Column(horizontalAlignment=Alignment.CenterHorizontally){
                     RocketPartThumbnail(draggingPart!!)
-                    Text(draggingPart!!.title,fontSize=8.sp,lineHeight=9.sp,maxLines=2,color=Color(0xFF1D344A),fontWeight=FontWeight.Bold,textAlign=androidx.compose.ui.text.style.TextAlign.Center)
+                    Text(draggingPart!!.title,fontSize=8.sp,lineHeight=9.sp,maxLines=2,color=Color(0xFFE7F2FC),fontWeight=FontWeight.Bold,textAlign=androidx.compose.ui.text.style.TextAlign.Center)
                 }
             }
         }
@@ -814,23 +814,23 @@ private fun BuilderScreen(
                     if(rocket.parts.isEmpty())Text("The stack is empty. Drag a component from the parts rail.")
                     else LazyColumn(verticalArrangement=Arrangement.spacedBy(5.dp),modifier=Modifier.heightIn(max=390.dp)){
                         itemsIndexed(rocket.parts){index,part->
-                            Row(Modifier.fillMaxWidth().background(Color(0xFFE7EFF6),RoundedCornerShape(7.dp)).padding(horizontal=7.dp,vertical=5.dp),verticalAlignment=Alignment.CenterVertically){
+                            Row(Modifier.fillMaxWidth().background(Color(0xFF14283B),RoundedCornerShape(7.dp)).padding(horizontal=7.dp,vertical=5.dp),verticalAlignment=Alignment.CenterVertically){
                                 RocketPartThumbnail(part)
                                 Column(Modifier.weight(1f).padding(start=7.dp)){
                                     Text(part.title,fontSize=12.sp,fontWeight=FontWeight.Bold,color=Color(0xFF1D344A),lineHeight=14.sp)
-                                    Text("M %.1f t · F %.1f t".format(part.mass,part.fuel),fontSize=10.sp,color=Color(0xFF61768A))
+                                    Text("M %.1f t · F %.1f t".format(part.mass,part.fuel),fontSize=10.sp,color=Color(0xFF8DA6BC))
                                 }
                                 Column(horizontalAlignment=Alignment.CenterHorizontally){
-                                    Text("↑",fontSize=17.sp,color=Color(0xFF3479B5),modifier=Modifier.clickable{onMove(index,-1)}.padding(horizontal=6.dp))
+                                    Text("↑",fontSize=17.sp,color=Color(0xFF45D7FF),modifier=Modifier.clickable{onMove(index,-1)}.padding(horizontal=6.dp))
                                     Text("↓",fontSize=17.sp,color=Color(0xFF3479B5),modifier=Modifier.clickable{onMove(index,1)}.padding(horizontal=6.dp))
                                 }
-                                Text("×",fontSize=20.sp,color=Color(0xFFB34758),modifier=Modifier.clickable{onRemove(index)}.padding(horizontal=6.dp))
+                                Text("×",fontSize=20.sp,color=Color(0xFFFF7189),modifier=Modifier.clickable{onRemove(index)}.padding(horizontal=6.dp))
                             }
                         }
                     }
                 },
-                confirmButton={TextButton(onClick={showStack=false},colors=ButtonDefaults.textButtonColors(contentColor=Color(0xFF3479B5))){Text("DONE")}},
-                containerColor=Color(0xFFF7FAFD)
+                confirmButton={TextButton(onClick={showStack=false},colors=ButtonDefaults.textButtonColors(contentColor=Color(0xFF45D7FF))){Text("DONE")}},
+                containerColor=Color(0xFF0E1B2A)
             )
         }
     }
