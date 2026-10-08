@@ -176,7 +176,7 @@ class MainActivity:ComponentActivity(){
             funds=preferences.getInt("career_funds",defaults.funds),
             science=preferences.getInt("career_science",defaults.science),
             reputation=preferences.getInt("career_reputation",defaults.reputation),
-            unlocked=preferences.getStringSet("career_unlocked",null)?.toSet()?:defaults.unlocked,
+            unlocked=(preferences.getStringSet("career_unlocked",null)?.toSet()?:defaults.unlocked) + if(PartType.HEAVY_ENGINE in initialRocket.parts) setOf("heavy") else emptySet(),
             completedContracts=preferences.getStringSet("career_contracts",null)?.toSet().orEmpty()
         )
         val initialMissions=preferences.getStringSet("flight_achievements",null)?.toSet().orEmpty()
