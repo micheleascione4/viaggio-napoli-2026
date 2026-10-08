@@ -23,8 +23,8 @@ Reviewed on 2026-10-09. Orbital Foundry uses original Compose Canvas part illust
 ## Planet surface maps bundled in the APK
 
 - **Earth — NASA Blue Marble, land/ocean/ice, 2048 px**  
-  Source: https://visibleearth.nasa.gov/images/57723/the-blue-marble  
-  Build URL: https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57723/land_ocean_ice_2048.png  
+  Source: https://svs.gsfc.nasa.gov/vis/a000000/a002900/a002915/  
+  Build URL: https://svs.gsfc.nasa.gov/vis/a000000/a002900/a002915/bluemarble-2048.png  
   NASA imagery is generally available for factual/educational/game-simulation use subject to NASA media rules. Do not use NASA logos or imply endorsement. Read the current guidelines: https://www.nasa.gov/nasa-brand-center/images-and-media/
 - **Mars — JPL Solar System Simulator / USGS Viking map**  
   Source page: https://space.jpl.nasa.gov/tmaps/mars.html  
