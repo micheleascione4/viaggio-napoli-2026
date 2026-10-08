@@ -1151,7 +1151,7 @@ private fun MapScreen(sim:SimState,earthTexture:ImageBitmap?,marsTexture:ImageBi
             listOf(EARTH_RADIUS_KM+200.0,EARTH_RADIUS_KM+35786.0,MOON_ORBIT_KM).forEachIndexed{idx,r->
                 drawCircle(Color(if(idx==2)0x445A7BA5L else 0x332F4B71L),plotRadius(r),center,style=Stroke(width=1f))
             }
-            val earthR=(15f*cameraZoom).coerceIn(2f,small*.16f)
+            val earthR=(15f*cameraZoom*cameraZoom).coerceIn(3f,small*.30f)
             drawCircle(Brush.radialGradient(listOf(Color(0x6649BFFF),Color.Transparent),center,earthR*2.1f),earthR*2.1f,center)
             drawTexturedPlanet(earthTexture,center,earthR,listOf(Color(0xFF448FC7),Color(0xFF1D4E80),Color(0xFF071326)))
             val moonAngle=2.0*PI*sim.time/(27.321661*86400.0)
