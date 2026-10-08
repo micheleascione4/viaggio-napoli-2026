@@ -956,7 +956,6 @@ private fun FlightScreen(
                 val moonScreen=Offset(center.x+cameraPan.x+moonDirection.x.toFloat()*small*.34f,center.y+cameraPan.y-moonDirection.y.toFloat()*small*.34f)
                 drawCircle(Color(0x336F819A),13f,moonScreen)
                 drawTexturedPlanet(null,moonScreen,7f,listOf(Color(0xFFE7E9EF),Color(0xFF929BA9),Color(0xFF3C4658)))
-                drawContext.canvas.nativeCanvas.drawText("MOON",moonScreen.x+10f,moonScreen.y-6f,android.graphics.Paint().apply{color=android.graphics.Color.LTGRAY;textSize=11f})
             }
 
             // Spacecraft remains central so the player can steer while panning the environment.
@@ -1150,7 +1149,7 @@ private fun MapScreen(sim:SimState,earthTexture:ImageBitmap?,marsTexture:ImageBi
             fun plotRadius(radiusKm:Double)=(baseRadius(radiusKm)*cameraZoom).coerceAtMost(mapLimit*1.6f)
             // Reference orbits make the navigation scale readable while still fitting the inner system.
             listOf(EARTH_RADIUS_KM+200.0,EARTH_RADIUS_KM+35786.0,MOON_ORBIT_KM).forEachIndexed{idx,r->
-                drawCircle(Color(if(idx==2)0x445A7BA5 else 0x332F4B71),plotRadius(r),center,style=Stroke(width=1f))
+                drawCircle(Color(if(idx==2)0x445A7BA5L else 0x332F4B71L),plotRadius(r),center,style=Stroke(width=1f))
             }
             val earthR=(15f*cameraZoom).coerceIn(2f,small*.16f)
             drawCircle(Brush.radialGradient(listOf(Color(0x6649BFFF),Color.Transparent),center,earthR*2.1f),earthR*2.1f,center)
