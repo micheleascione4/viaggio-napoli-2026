@@ -111,6 +111,7 @@ data class SimState(
     val landed:Boolean=false,
     val heat:Double=0.0,
     val maxDynamicPressureKpa:Double=0.0,
+    val maxAltitudeKm:Double=0.0,
     val parachuteDeployed:Boolean=false,
     val targetPos:V2?=null,
     val targetVel:V2?=null,
