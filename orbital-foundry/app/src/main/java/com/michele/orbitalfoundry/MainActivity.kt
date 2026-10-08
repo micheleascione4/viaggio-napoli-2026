@@ -535,7 +535,7 @@ private fun HomeScreen(
         Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()){
             OutlinedButton(
                 onClick=onSandbox,modifier=Modifier.weight(1f).height(47.dp),shape=RoundedCornerShape(10.dp),
-                colors=ButtonDefaults.outlinedButtonColors(contentColor=ink),border=BorderStroke(1.dp,Color(0xFF385274))
+                colors=ButtonDefaults.outlinedButtonColors(contentColor=ink),border=androidx.compose.foundation.BorderStroke(1.dp,Color(0xFF385274))
             ){Text("SANDBOX",fontWeight=FontWeight.Black,fontSize=11.sp)}
             Button(
                 onClick=onLaunch,enabled=rocket.hasEngine&&rocket.hasCapsule,modifier=Modifier.weight(1f).height(47.dp),
@@ -612,58 +612,75 @@ private fun RocketPartThumbnail(part:PartType){
     }
 }
 
-private fun stackPreviewScale(height:Float,count:Int,density:Float):Float{
+private fun stackPreviewScale(height:Float,count:Int,density:Float,maxVisibleParts:Int=Int.MAX_VALUE):Float{
     if(count<=0)return 1f
-    // Canvas coordinates are pixels: scale the parts from dp so they remain legible on high-density phones.
+    // The workshop intentionally lets long rockets extend beyond the viewport; they can be panned.
     val available=(height-110f*density).coerceAtLeast(60f*density)
-    return min(1f,available/(count*94f*density)).coerceIn(.12f,1f)
+    val fitCount=min(count,maxVisibleParts).coerceAtLeast(1)
+    return min(1f,available/(fitCount*94f*density)).coerceIn(.12f,1f)
 }
 
-private fun stackInsertionIndex(y:Float,height:Float,count:Int,density:Float):Int{
+private fun stackInsertionIndex(y:Float,height:Float,count:Int,density:Float,verticalPan:Float=0f,maxVisibleParts:Int=Int.MAX_VALUE):Int{
     if(count<=0)return 0
-    val scale=stackPreviewScale(height,count,density)
+    val scale=stackPreviewScale(height,count,density,maxVisibleParts)
     val partH=88f*density*scale
     val step=94f*density*scale
-    val bottomCenter=height-82f*density*scale-partH/2f
-    val topCenter=bottomCenter-(count-1)*step
+    val totalHeight=count*partH+(count-1).coerceAtLeast(0)*6f*density*scale
+    val topCenter=(height-totalHeight)/2f+partH/2f+verticalPan
+    val bottomCenter=topCenter+(count-1)*step
     if(y<topCenter-partH/2f)return 0
     if(y>bottomCenter+partH/2f)return count
-    val rowFromTop=((y-topCenter)/step).roundToInt().coerceIn(0,count-1)
-    val center=topCenter+rowFromTop*step
-    return (rowFromTop+if(y>center)1 else 0).coerceIn(0,count)
+    val row=((y-topCenter)/step).roundToInt().coerceIn(0,count-1)
+    val center=topCenter+row*step
+    return (row+if(y>center)1 else 0).coerceIn(0,count)
 }
+
 
 @Composable
 private fun RocketStackPreview(
     rocket:Rocket,
     modifier:Modifier=Modifier,
-    onReorder:((Int,Int)->Unit)?=null
+    onReorder:((Int,Int)->Unit)?=null,
+    verticalPan:Float=0f,
+    onPan:((Float)->Unit)?=null,
+    maxVisibleParts:Int=Int.MAX_VALUE
 ){
     val density=androidx.compose.ui.platform.LocalDensity.current.density
-    val reorderModifier=if(onReorder!=null) Modifier.pointerInput(rocket.parts,onReorder,density){
+    val interactionModifier=if(onReorder!=null||onPan!=null) Modifier.pointerInput(rocket.parts,onReorder,onPan,density,maxVisibleParts){
         var from=-1
         var to=-1
+        var panMode=false
         detectDragGestures(
             onDragStart={point->
                 val count=rocket.parts.size
-                if(count>0){
-                    val scale=stackPreviewScale(size.height.toFloat(),count,density)
-                    val partH=88f*density*scale
-                    val bottomCenter=size.height-82f*density*scale-partH/2f
-                    val row=((bottomCenter-point.y)/(94f*density*scale)).roundToInt().coerceIn(0,count-1)
-                    from=count-1-row
-                    to=from
+                val scale=stackPreviewScale(size.height.toFloat(),count,density,maxVisibleParts)
+                val partH=88f*density*scale
+                val step=94f*density*scale
+                val stackHeight=count*partH+(count-1).coerceAtLeast(0)*6f*density*scale
+                val topCenter=(size.height-stackHeight)/2f+partH/2f+verticalPan
+                val row=((point.y-topCenter)/step).roundToInt()
+                if(onReorder!=null&&row in 0 until count&&abs(point.y-(topCenter+row*step))<=partH*.65f){
+                    from=row
+                    to=row
+                    panMode=false
+                }else{
+                    from=-1
+                    to=-1
+                    panMode=true
                 }
             },
-            onDrag={change,_->
+            onDrag={change,delta->
                 change.consume()
-                val count=rocket.parts.size
-                if(count>0&&from>=0){
-                    val scale=stackPreviewScale(size.height.toFloat(),count,density)
+                if(panMode){
+                    onPan?.invoke(delta.y)
+                }else if(rocket.parts.isNotEmpty()&&from>=0){
+                    val count=rocket.parts.size
+                    val scale=stackPreviewScale(size.height.toFloat(),count,density,maxVisibleParts)
                     val partH=88f*density*scale
-                    val bottomCenter=size.height-82f*density*scale-partH/2f
-                    val row=((bottomCenter-change.position.y)/(94f*density*scale)).roundToInt().coerceIn(0,count-1)
-                    to=count-1-row
+                    val step=94f*density*scale
+                    val stackHeight=count*partH+(count-1).coerceAtLeast(0)*6f*density*scale
+                    val topCenter=(size.height-stackHeight)/2f+partH/2f+verticalPan
+                    to=((change.position.y-topCenter)/step).roundToInt().coerceIn(0,count-1)
                 }
             },
             onDragEnd={
@@ -671,29 +688,31 @@ private fun RocketStackPreview(
                 val destination=to
                 from=-1
                 to=-1
-                if(source>=0&&destination>=0&&source!=destination)onReorder.invoke(source,destination-source)
+                if(!panMode&&source>=0&&destination>=0&&source!=destination)onReorder?.invoke(source,destination-source)
+                panMode=false
             },
-            onDragCancel={from=-1;to=-1}
+            onDragCancel={from=-1;to=-1;panMode=false}
         )
     }else Modifier
-    Canvas(modifier.fillMaxSize().then(reorderModifier)){
+    Canvas(modifier.fillMaxSize().then(interactionModifier)){
         drawRect(Brush.verticalGradient(listOf(Color(0xFF10263C),Color(0xFF0B1B2D),Color(0xFF071321))),size=Size(size.width,size.height))
         val grid=42f*density
         for(x in 0..(size.width/grid).toInt())drawLine(Color(0x223C759F),Offset(x*grid,0f),Offset(x*grid,size.height),max(1f,density*.35f))
         for(y in 0..(size.height/grid).toInt())drawLine(Color(0x223C759F),Offset(0f,y*grid),Offset(size.width,y*grid),max(1f,density*.35f))
         drawLine(Color(0x3345D7FF),Offset(size.width*.5f,0f),Offset(size.width*.5f,size.height),max(1f,density*.35f))
         val count=rocket.parts.size
-        val scale=stackPreviewScale(size.height,count,density)
+        val scale=stackPreviewScale(size.height,count,density,maxVisibleParts)
         val partH=88f*density*scale
         val partGap=6f*density*scale
         val partW=min(82f*density,size.width*.42f)*scale
         val left=(size.width-partW)*.5f
-        var y=size.height-82f*density*scale-partH
+        val stackHeight=count*partH+(count-1).coerceAtLeast(0)*partGap
+        var y=(size.height+stackHeight)/2f-partH+verticalPan
         rocket.parts.asReversed().forEach{part->
             drawRocketComponent(part,left,y,partW,partH)
             y-=partH+partGap
         }
-        val platformY=size.height-68f*density*scale
+        val platformY=if(count>0)(size.height+stackHeight)/2f+verticalPan+14f*density*scale else size.height*.82f
         drawRoundRect(Color(0xFF1A354D),Offset(size.width*.27f,platformY),Size(size.width*.46f,8f*density*scale),CornerRadius(3f*density*scale))
         drawLine(Color(0xFF4B8AB7),Offset(size.width*.18f,platformY+9f*density*scale),Offset(size.width*.82f,platformY+9f*density*scale),1.5f*density*scale)
         if(rocket.parts.isEmpty()){
@@ -841,6 +860,7 @@ private fun BuilderScreen(
     var showBlueprintLibrary by rememberSaveable{mutableStateOf(false)}
     var showAnalysis by rememberSaveable{mutableStateOf(false)}
     var selectedCategory by rememberSaveable{mutableStateOf("ALL")}
+    var canvasPan by rememberSaveable{mutableFloatStateOf(0f)}
     val unlocked=if(sandboxMode)CareerDatabase.tech.map{it.id}.toSet() else unlockedTech
     var rootBounds by remember{mutableStateOf<Rect?>(null)}
     var viewportBounds by remember{mutableStateOf<Rect?>(null)}
@@ -883,7 +903,16 @@ private fun BuilderScreen(
                     .border(1.dp,Color(0xFF1B354D),RoundedCornerShape(16.dp))
                     .onGloballyPositioned{viewportBounds=it.boundsInWindow()}
             ){
-                RocketStackPreview(rocket,Modifier.fillMaxSize(),onReorder=onMove)
+                RocketStackPreview(
+                    rocket,Modifier.fillMaxSize(),onReorder=onMove,verticalPan=canvasPan,maxVisibleParts=10,
+                    onPan={delta->
+                        val h=viewportBounds?.height?:0f
+                        val scale=stackPreviewScale(h,rocket.parts.size,density,10)
+                        val total=rocket.parts.size*88f*density*scale+(rocket.parts.size-1).coerceAtLeast(0)*6f*density*scale
+                        val limit=max(0f,(total-h)/2f+42f*density)
+                        canvasPan=(canvasPan+delta).coerceIn(-limit,limit)
+                    }
+                )
                 Column(Modifier.align(Alignment.TopStart).padding(9.dp).background(Color(0xDD0B1725),RoundedCornerShape(10.dp)).border(1.dp,line,RoundedCornerShape(10.dp)).padding(horizontal=10.dp,vertical=7.dp)){
                     Text("ASSEMBLY",fontSize=9.sp,color=cyan,fontWeight=FontWeight.Black,letterSpacing=1.sp)
                     Text(rocket.parts.size.toString()+" COMPONENTS",fontSize=10.sp,color=ink,fontWeight=FontWeight.Bold)
@@ -932,7 +961,7 @@ private fun BuilderScreen(
                                     val bounds=viewportBounds
                                     if(position!=null&&bounds!=null&&position.x>bounds.left&&position.x<bounds.right&&position.y>=bounds.top&&position.y<=bounds.bottom){
                                         val y=(position.y-bounds.top).coerceIn(0f,bounds.height)
-                                        onDrop(part,stackInsertionIndex(y,bounds.height,rocket.parts.size,density))
+                                        onDrop(part,stackInsertionIndex(y,bounds.height,rocket.parts.size,density,canvasPan,10))
                                     }
                                     draggingPart=null
                                     dragPosition=null
