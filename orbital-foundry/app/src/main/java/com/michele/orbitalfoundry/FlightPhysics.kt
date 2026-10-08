@@ -78,7 +78,9 @@ fun beginDockingPractice(rocket: Rocket): SimState {
     val radius = EARTH_RADIUS_KM + 200.0
     val position = V2(radius, 0.0)
     val velocity = V2(0.0, sqrt(EARTH_MU / radius))
-    val active = activeStageParts(rocket.parts)
+    val firstSeparator = rocket.parts.indexOfFirst { it == PartType.DECOUPLER }
+    val orbitalParts = if (firstSeparator >= 0) rocket.parts.take(firstSeparator) else rocket.parts
+    val active = activeStageParts(orbitalParts)
     val tangent = V2(0.0, 1.0)
     return SimState(
         pos = position,
@@ -86,15 +88,16 @@ fun beginDockingPractice(rocket: Rocket): SimState {
         angle = Math.PI / 2.0,
         throttle = 0.0,
         fuel = active.sumOf { it.fuel },
-        mass = rocket.dryMass + rocket.fuel,
+        mass = orbitalParts.sumOf { it.mass + it.fuel },
         thrust = active.sumOf { it.thrust },
-        parts = rocket.parts,
+        parts = orbitalParts,
         time = 0.0,
         stage = 1,
         guidance = Guidance.MANUAL,
         targetPos = position + tangent * 0.040,
         targetVel = velocity + tangent * 0.00015,
         docking = true,
+        maxAltitudeKm = 200.0,
         trail = listOf(position)
     )
 }
@@ -220,6 +223,7 @@ fun stepPhysics(input: SimState, dtSeconds: Double, pitchDegrees: Double): SimSt
             landed = landed,
             heat = heat,
             maxDynamicPressureKpa = max(s.maxDynamicPressureKpa, qKpa),
+            maxAltitudeKm = max(s.maxAltitudeKm, newAltitude.coerceAtLeast(0.0)),
             targetPos = targetPosition,
             targetVel = targetVelocity,
             trail = if (it % 2 == 0) (s.trail + newPosition).takeLast(720) else s.trail
