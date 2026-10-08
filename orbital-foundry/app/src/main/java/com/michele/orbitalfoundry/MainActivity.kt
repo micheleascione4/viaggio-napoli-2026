@@ -105,8 +105,7 @@ fun starterRocket():Rocket=Rocket(listOf(
     PartType.TANK,PartType.TANK,PartType.VACUUM_ENGINE,PartType.DECOUPLER,
     PartType.TANK,PartType.TANK,PartType.VACUUM_ENGINE,PartType.DECOUPLER,
     PartType.TANK,PartType.TANK,PartType.ENGINE,PartType.ENGINE,PartType.ENGINE,PartType.ENGINE,PartType.FIN
-)
-
+))
 
 data class SimState(
     val pos:V2=V2(0.0,EARTH_RADIUS_KM+0.02),
