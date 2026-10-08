@@ -295,7 +295,7 @@ private fun missionCompletions(s:SimState):Set<String>{
     if(alt>=80) done+="suborbital"
     if(alt>=80 && orbit.periapsis-50.0>=50 && orbit.apoapsis-50.0>=80) done+="orbit"
     if(alt>=120 && orbit.periapsis-50.0>=120) done+="satellite"
-    if(s.landed) done+="landing"
+    if(s.landed) done+="recovery"
     if(s.landed) done+="suborbital"
     return done
 }
