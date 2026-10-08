@@ -851,227 +851,251 @@ private fun launchState(rocket:Rocket):SimState{
 }
 
 @Composable
-private fun FlightScreen(sim:SimState,onTick:(SimState)->Unit,onMap:()->Unit,onBack:()->Unit,onMission:(String)->Unit){
+private fun FlightScreen(
+    sim:SimState,earthTexture:ImageBitmap?,marsTexture:ImageBitmap?,
+    onTick:(SimState)->Unit,onMap:()->Unit,onBack:()->Unit,onMission:(String)->Unit
+){
     var paused by rememberSaveable{mutableStateOf(false)}
     var pitchOffset by rememberSaveable{mutableFloatStateOf(90f)}
     var timeWarp by rememberSaveable{mutableIntStateOf(1)}
+    var showAdvanced by rememberSaveable{mutableStateOf(false)}
+    var cameraZoom by rememberSaveable{mutableFloatStateOf(1f)}
+    var cameraPan by remember{mutableStateOf(Offset.Zero)}
     val latestSim by rememberUpdatedState(sim)
     val latestPitch by rememberUpdatedState(pitchOffset)
+
     LaunchedEffect(paused,timeWarp,sim.crashed,sim.landed,sim.docked){
         if(paused||sim.crashed||sim.landed||sim.docked)return@LaunchedEffect
         while(true){
             delay(40L)
-            val current=latestSim?:break
+            val current=latestSim
             if(current.crashed||current.landed||current.docked)break
             onTick(stepPhysics(current,0.15*timeWarp,latestPitch.toDouble()))
         }
     }
-    val altitude=sim.pos.mag()-EARTH_RADIUS_KM
+
+    val altitude=(sim.pos.mag()-EARTH_RADIUS_KM).coerceAtLeast(0.0)
     val speed=sim.vel.mag()
     val orbit=orbitalMetrics(sim.pos,sim.vel)
-    val activeParts=activeStageParts(sim.parts)
-    val activeThrust=activeParts.sumOf{it.thrust}
-    val twr=if(sim.mass>0)activeThrust/(sim.mass*G0)else 0.0
+    val active=activeStageParts(sim.parts)
+    val thrust=active.sumOf{it.thrust}
+    val twr=if(sim.mass>0)thrust/(sim.mass*G0)else 0.0
+    val rangeMeters=sim.targetPos?.let{(it-sim.pos).mag()*1000.0}
+    val relativeSpeed=sim.targetVel?.let{(it-sim.vel).mag()*1000.0}
     val mission=when{
         sim.docked->"DOCKED"
         sim.landed->"RECOVERY"
-        altitude>=120&&orbit.periapsisAltitudeKm>=120->"STABLE ORBIT"
+        altitude>=100&&orbit.periapsisAltitudeKm>=100->"ORBIT"
         altitude>=80->"SUBORBITAL"
-        altitude>30->"ASCENT"
+        altitude>25->"ASCENT"
         else->"LAUNCH"
     }
-    val rangeMeters=sim.targetPos?.let{(it-sim.pos).mag()*1000.0}
-    val relativeSpeed=if(sim.targetVel!=null)(sim.targetVel-sim.vel).mag()*1000.0 else null
-    Column(Modifier.fillMaxSize().background(Bg).padding(horizontal=12.dp,vertical=8.dp)){
-        Row(verticalAlignment=Alignment.CenterVertically){
-            Text("‹",fontSize=36.sp,modifier=Modifier.clickable{onBack()}.padding(horizontal=6.dp),color=Ink)
-            Column(Modifier.weight(1f).padding(start=4.dp)){
-                Text(if(sim.docking)"DOCKING RANGE" else "MISSION · $mission",fontWeight=FontWeight.Black,fontSize=16.sp,lineHeight=20.sp)
-                Text("STAGE ${sim.stage} · ${sim.guidance.name.replace('_',' ')}",color=Muted,fontSize=11.sp,lineHeight=14.sp)
-            }
-            IconButton(onClick=onMap,modifier=Modifier.size(44.dp)){Text("◎",fontSize=24.sp,color=Cyan)}
-        }
-        Spacer(Modifier.height(4.dp))
-        Row(horizontalArrangement=Arrangement.spacedBy(5.dp),modifier=Modifier.fillMaxWidth()){
-            Metric("ALT","%.0f km".format(altitude.coerceAtLeast(0.0)),Modifier.weight(1f))
-            Metric("VELOCITY",if(speed<1.0)"%.0f m/s".format(speed*1000.0) else "%.2f km/s".format(speed),Modifier.weight(1f))
-            Metric("APO",if(orbit.escape)"ESCAPE" else "%.0f km".format(orbit.apoapsisAltitudeKm),Modifier.weight(1f))
-            Metric("PERI",if(orbit.periapsisAltitudeKm<0)"IMPACT" else "%.0f km".format(orbit.periapsisAltitudeKm),Modifier.weight(1f))
-        }
-        Spacer(Modifier.height(5.dp))
-        Row(horizontalArrangement=Arrangement.spacedBy(5.dp),modifier=Modifier.fillMaxWidth()){
-            Metric("TWR","%.2f".format(twr),Modifier.weight(1f))
-            Metric("MAX Q","%.0f kPa".format(sim.maxDynamicPressureKpa),Modifier.weight(1f))
-            Metric("HEAT","%.0f%%".format((sim.heat*100).coerceIn(0.0,150.0)),Modifier.weight(1f))
-            Metric("FUEL","%.1f t".format(sim.fuel),Modifier.weight(1f))
-        }
-        Spacer(Modifier.height(6.dp))
-        Surface(color=Panel,shape=RoundedCornerShape(20.dp),modifier=Modifier.fillMaxWidth().weight(1f)){
-            Canvas(Modifier.fillMaxSize()){
-                val small=min(size.width,size.height)
-                val center=Offset(size.width*.5f,size.height*.49f)
-                val altitudeLocal=(sim.pos.mag()-EARTH_RADIUS_KM).coerceAtLeast(0.0)
-                val scale=(small/(max(35.0,altitudeLocal+35.0)*2.7)).toFloat().coerceIn(.10f,8f)
-                drawRect(Brush.verticalGradient(listOf(Color(0xFF050916),Color(0xFF0C1931),Color(0xFF05060B))),size=Size(size.width,size.height))
-                // Custom starfield with a subtle blue nebula band.
-                drawOval(Brush.radialGradient(listOf(Color(0x223E79D8),Color.Transparent),Offset(size.width*.72f,size.height*.22f),small*.72f),Offset(size.width*.06f,size.height*.02f),Size(size.width*.95f,size.height*.70f))
-                repeat(88){i->
-                    val sx=((i*83+17)%997)/997f*size.width
-                    val sy=((i*47+29)%991)/991f*size.height
-                    val radius=if(i%11==0)2f else if(i%3==0)1.3f else .75f
-                    drawCircle(if(i%9==0)Color(0xFF93E2FF) else Color.White,radius,Offset(sx,sy),alpha=if(i%5==0).82f else .33f)
+
+    Box(Modifier.fillMaxSize().background(Color(0xFF050914))){
+        Canvas(
+            Modifier.fillMaxSize().pointerInput(Unit){
+                detectTransformGestures{_,pan,zoom,_->
+                    cameraZoom=(cameraZoom*zoom).coerceIn(0.22f,3.2f)
+                    cameraPan=Offset(
+                        (cameraPan.x+pan.x).coerceIn(-size.width*.36f,size.width*.36f),
+                        (cameraPan.y+pan.y).coerceIn(-size.height*.32f,size.height*.32f)
+                    )
                 }
-                // Camera follows the spacecraft; altitude and the apparent Earth size change smoothly.
-                val radial=sim.pos.normalized()
-                val earthR=(small*.36f/(1.0+altitudeLocal/1800.0)).toFloat().coerceAtLeast(18f)
-                val altitudePixels=(ln(1.0+altitudeLocal/8.0)*26.0).toFloat().coerceAtMost(size.height*.54f)
-                val earthCenter=Offset(
-                    center.x-radial.x.toFloat()*(earthR+altitudePixels),
-                    center.y+radial.y.toFloat()*(earthR+altitudePixels)
+            }
+        ){
+            val small=min(size.width,size.height)
+            val center=Offset(size.width*.5f,size.height*.48f)
+            val altitudeLocal=(sim.pos.mag()-EARTH_RADIUS_KM).coerceAtLeast(0.0)
+            drawRect(Brush.verticalGradient(listOf(Color(0xFF050A17),Color(0xFF10233D),Color(0xFF040711))),size=Size(size.width,size.height))
+            drawOval(
+                Brush.radialGradient(listOf(Color(0x224A8DDB),Color.Transparent),Offset(size.width*.68f,size.height*.26f),small*.8f),
+                Offset(size.width*.08f,size.height*.03f),Size(size.width*.88f,size.height*.72f)
+            )
+            repeat(105){i->
+                val sx=((i*83+17)%997)/997f*size.width
+                val sy=((i*47+29)%991)/991f*size.height
+                val r=if(i%13==0)2f else if(i%3==0)1.2f else .7f
+                drawCircle(if(i%11==0)Color(0xFF93E2FF)else Color.White,r,Offset(sx,sy),alpha=if(i%5==0).78f else .30f)
+            }
+
+            // Camera distance adapts from a surface view to a high-orbit view with pinch gestures.
+            val radial=sim.pos.normalized()
+            val earthR=(small*.36f/(1.0+altitudeLocal/1800.0)*cameraZoom).toFloat().coerceIn(7f,small*.62f)
+            val altitudePixels=(ln(1.0+altitudeLocal/8.0)*25.0*cameraZoom).toFloat().coerceAtMost(size.height*.66f)
+            val earthCenter=Offset(
+                center.x+cameraPan.x-radial.x.toFloat()*(earthR+altitudePixels),
+                center.y+cameraPan.y+radial.y.toFloat()*(earthR+altitudePixels)
+            )
+            drawCircle(
+                Brush.radialGradient(listOf(Color(0x6654BFFF),Color(0x2254BFFF),Color.Transparent),earthCenter,earthR*1.55f),
+                earthR*1.55f,earthCenter
+            )
+            drawTexturedPlanet(earthTexture,earthCenter,earthR,listOf(Color(0xFF428BBF),Color(0xFF1E4B7A),Color(0xFF071326)))
+
+            // Cloud veil and limb glow lend depth without obscuring the surface map.
+            drawCircle(Color(0x663EC8FF),earthR*1.015f,earthCenter,style=Stroke(width=max(1f,earthR*.035f)))
+            drawCircle(
+                Brush.radialGradient(listOf(Color.Transparent,Color(0x220C1426)),Offset(earthCenter.x-earthR*.3f,earthCenter.y-earthR*.35f),earthR*1.2f),
+                earthR,earthCenter
+            )
+
+            val sceneScale=(small/(max(40.0,altitudeLocal+35.0)*2.7)*cameraZoom).toFloat().coerceIn(.0002f,9f)
+            if(sim.trail.size>1){
+                val path=Path()
+                sim.trail.forEachIndexed{idx,p->
+                    val q=Offset(center.x+cameraPan.x+((p.x-sim.pos.x)*sceneScale),center.y+cameraPan.y-((p.y-sim.pos.y)*sceneScale))
+                    if(idx==0)path.moveTo(q.x,q.y)else path.lineTo(q.x,q.y)
+                }
+                drawPath(path,color=Color(0x7745D7FF),style=Stroke(width=5f))
+                drawPath(path,color=Cyan,style=Stroke(width=2f))
+            }
+            // Show the Moon as a real target only while the view is zoomed out enough to frame it.
+            if(cameraZoom<=.42f){
+                val moonAngle=2.0*PI*sim.time/(27.321661*86400.0)
+                val moonDirection=V2(cos(moonAngle),sin(moonAngle))
+                val moonScreen=Offset(center.x+cameraPan.x+moonDirection.x.toFloat()*small*.34f,center.y+cameraPan.y-moonDirection.y.toFloat()*small*.34f)
+                drawCircle(Color(0x336F819A),13f,moonScreen)
+                drawTexturedPlanet(null,moonScreen,7f,listOf(Color(0xFFE7E9EF),Color(0xFF929BA9),Color(0xFF3C4658)))
+                drawContext.canvas.nativeCanvas.drawText("MOON",moonScreen.x+10f,moonScreen.y-6f,android.graphics.Paint().apply{color=android.graphics.Color.LTGRAY;textSize=11f})
+            }
+
+            // Spacecraft remains central so the player can steer while panning the environment.
+            val rp=center
+            val fx=cos(sim.angle).toFloat()
+            val fy=-sin(sim.angle).toFloat()
+            val bx=-fx
+            val by=-fy
+            val sideX=-fy
+            val sideY=fx
+            if(sim.fuel>0.01&&sim.throttle>0.01&&!sim.crashed&&!sim.landed&&!sim.docked){
+                val flameLength=14f+sim.throttle.toFloat()*28f
+                val flame=Path().apply{
+                    moveTo(rp.x+bx*8f+sideX*3.5f,rp.y+by*8f+sideY*3.5f)
+                    lineTo(rp.x+bx*flameLength,rp.y+by*flameLength)
+                    lineTo(rp.x+bx*8f-sideX*3.5f,rp.y+by*8f-sideY*3.5f)
+                    close()
+                }
+                drawPath(flame,Brush.verticalGradient(listOf(Color(0xFFFFF5C9),Color(0xFFFFA13B),Color(0x55FF4B30)),startY=rp.y-30f,endY=rp.y+36f))
+                drawCircle(Color(0x44FF8A35),10f,Offset(rp.x+bx*10f,rp.y+by*10f))
+                repeat(7){i->
+                    val t=i/6f
+                    drawCircle(Color(0x44FFC078),1.8f*(1f-t),Offset(rp.x+bx*(12f+i*3.7f)+sin((sim.time+i)*2.4).toFloat()*2f,rp.y+by*(12f+i*3.7f)))
+                }
+            }
+            val body=Path().apply{
+                moveTo(rp.x+fx*14f,rp.y+fy*14f)
+                lineTo(rp.x-fx*8f+sideX*5.2f,rp.y-fy*8f+sideY*5.2f)
+                lineTo(rp.x-fx*6f,rp.y-fy*6f)
+                lineTo(rp.x-fx*8f-sideX*5.2f,rp.y-fy*8f-sideY*5.2f)
+                close()
+            }
+            drawPath(body,Brush.linearGradient(listOf(Color.White,Color(0xFF9BACBF),Color(0xFF404F68)),Offset(rp.x-8f,rp.y-8f),Offset(rp.x+8f,rp.y+8f)))
+            drawCircle(Color(0xFF45D7FF),2.2f,Offset(rp.x+fx*2.5f,rp.y+fy*2.5f))
+            drawCircle(Color.White,2f,rp)
+            if(sim.heat>.65){
+                drawRoundRect(Color(0x66FF5369),Offset(2f,2f),Size(size.width-4f,size.height-4f),CornerRadius(18f),style=Stroke(width=4f))
+            }
+            if(sim.docking&&sim.targetPos!=null){
+                val direction=(sim.targetPos-sim.pos).normalized()
+                val target=Offset(center.x+direction.x.toFloat()*74f,center.y-direction.y.toFloat()*74f)
+                drawLine(Color(0xAA45D7FF),center,target,1.5f)
+                drawCircle(Cyan,10f,target,style=Stroke(width=2f))
+                drawLine(Cyan,Offset(target.x-15f,target.y),Offset(target.x+15f,target.y),1.5f)
+                drawLine(Cyan,Offset(target.x,target.y-15f),Offset(target.x,target.y+15f),1.5f)
+            }
+        }
+
+        // Compact, translucent HUD—most of the screen stays dedicated to the world.
+        Column(Modifier.align(Alignment.TopCenter).fillMaxWidth().padding(horizontal=7.dp,vertical=6.dp)){
+            Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.fillMaxWidth().background(Color(0x99202C3E),RoundedCornerShape(14.dp)).padding(horizontal=7.dp,vertical=5.dp)){
+                Text("‹",fontSize=29.sp,color=Ink,modifier=Modifier.clickable{onBack()}.padding(horizontal=7.dp))
+                Column(Modifier.weight(1f)){
+                    Text(if(sim.docking)"DOCKING" else mission,fontSize=12.sp,fontWeight=FontWeight.Black,lineHeight=15.sp)
+                    Text("STAGE ${sim.stage} · T+${sim.time.roundToInt()}s",fontSize=9.sp,color=Muted,lineHeight=12.sp)
+                }
+                Column(horizontalAlignment=Alignment.End){
+                    Text("ALT  ${"%.0f".format(altitude)} km",fontSize=11.sp,fontWeight=FontWeight.Bold)
+                    Text("VEL  ${if(speed<1.0)"%.0f m/s".format(speed*1000.0) else "%.2f km/s".format(speed)}",fontSize=10.sp,color=Cyan,fontWeight=FontWeight.Bold)
+                }
+                Spacer(Modifier.width(8.dp))
+                TextButton(onClick=onMap,contentPadding=PaddingValues(horizontal=6.dp,vertical=4.dp)){
+                    Text("MAP",fontSize=11.sp,fontWeight=FontWeight.Black)
+                }
+            }
+            Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.padding(top=4.dp,start=4.dp)){
+                Text("APO  ${if(orbit.escape)"ESCAPE" else "%.0f km".format(orbit.apoapsisAltitudeKm)}",fontSize=10.sp,color=Ink,fontWeight=FontWeight.Bold)
+                Spacer(Modifier.width(11.dp))
+                Text("PERI  ${if(orbit.periapsisAltitudeKm<0)"IMPACT" else "%.0f km".format(orbit.periapsisAltitudeKm)}",fontSize=10.sp,color=Ink,fontWeight=FontWeight.Bold)
+                Spacer(Modifier.weight(1f))
+                Text("${(sim.throttle*100).roundToInt()}% THROTTLE",fontSize=10.sp,color=Cyan,fontWeight=FontWeight.Black)
+            }
+        }
+
+        Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal=8.dp,vertical=7.dp)){
+            if(sim.docking&&rangeMeters!=null&&relativeSpeed!=null){
+                Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.fillMaxWidth().background(Color(0xAA0A1523),RoundedCornerShape(12.dp)).padding(horizontal=9.dp,vertical=5.dp)){
+                    Column(Modifier.weight(1f)){
+                        Text("RANGE",fontSize=8.sp,color=Muted,fontWeight=FontWeight.Black)
+                        Text(if(rangeMeters>=1000)"%.2f km".format(rangeMeters/1000.0)else"%.1f m".format(rangeMeters),fontSize=13.sp,fontWeight=FontWeight.Black)
+                    }
+                    Column(Modifier.weight(1f)){
+                        Text("RELATIVE SPEED",fontSize=8.sp,color=Muted,fontWeight=FontWeight.Black)
+                        Text("%.2f m/s".format(relativeSpeed),fontSize=13.sp,fontWeight=FontWeight.Black,color=if(relativeSpeed<.5)Green else Orange)
+                    }
+                    SmallButton("APPROACH",{onTick(applyDockingApproach(sim))},Modifier.weight(1f),enabled=!sim.docked)
+                    SmallButton("MATCH",{onTick(matchDockingVelocity(sim))},Modifier.weight(1f),enabled=!sim.docked)
+                    SmallButton("DOCK",{val next=attemptDock(sim);onTick(next);if(next.docked)onMission("dock")},Modifier.weight(1f),enabled=!sim.docked&&rangeMeters<=5.0&&relativeSpeed<=.5)
+                }
+                Spacer(Modifier.height(4.dp))
+            }
+            Surface(color=Color(0xAA0A1422),shape=RoundedCornerShape(16.dp),modifier=Modifier.fillMaxWidth()){
+                Column(Modifier.padding(horizontal=8.dp,vertical=5.dp)){
+                    Row(verticalAlignment=Alignment.CenterVertically){
+                        Text("THR",fontSize=9.sp,color=Muted,fontWeight=FontWeight.Black)
+                        Slider(value=sim.throttle.toFloat(),onValueChange={onTick(sim.copy(throttle=it.toDouble()))},valueRange=0f..1f,modifier=Modifier.weight(1f).height(31.dp),colors=SliderDefaults.colors(thumbColor=Cyan,activeTrackColor=Cyan,inactiveTrackColor=Color(0x663C536D)))
+                        Text("${(sim.throttle*100).roundToInt()}%",fontSize=10.sp,color=Ink,fontWeight=FontWeight.Black)
+                    }
+                    Row(horizontalArrangement=Arrangement.spacedBy(5.dp),verticalAlignment=Alignment.CenterVertically,modifier=Modifier.fillMaxWidth()){
+                        SmallButton("◀",{
+                            pitchOffset=(pitchOffset-5f).coerceIn(0f,180f)
+                            onTick(sim.copy(guidance=Guidance.MANUAL))
+                        },Modifier.weight(.8f))
+                        SmallButton("STAGE",{onTick(separateStage(sim))},Modifier.weight(1.15f),enabled=sim.parts.contains(PartType.DECOUPLER))
+                        SmallButton("▶",{
+                            pitchOffset=(pitchOffset+5f).coerceIn(0f,180f)
+                            onTick(sim.copy(guidance=Guidance.MANUAL))
+                        },Modifier.weight(.8f))
+                        SmallButton(if(paused)"▶" else "Ⅱ",{paused=!paused},Modifier.weight(.8f))
+                        SmallButton(if(showAdvanced)"LESS" else "MORE",{showAdvanced=!showAdvanced},Modifier.weight(1f))
+                    }
+                    if(showAdvanced){
+                        Spacer(Modifier.height(3.dp))
+                        Row(horizontalArrangement=Arrangement.spacedBy(5.dp),modifier=Modifier.fillMaxWidth()){
+                            SmallButton("PROGRADE",{onTick(sim.copy(guidance=Guidance.PROGRADE))},Modifier.weight(1f))
+                            SmallButton("RETRO",{onTick(sim.copy(guidance=Guidance.RETROGRADE))},Modifier.weight(1f))
+                            SmallButton("WARP ×$timeWarp",{timeWarp=if(timeWarp==1)5 else if(timeWarp==5)20 else 1},Modifier.weight(1f))
+                            SmallButton(if(sim.parachuteDeployed)"CHUTE ✓" else "CHUTE",{
+                                if(PartType.PARACHUTE in activeStageParts(sim.parts)&&altitude in 0.0..15.0&&speed<.30)onTick(sim.copy(parachuteDeployed=true))
+                            },Modifier.weight(1f),enabled=PartType.PARACHUTE in activeStageParts(sim.parts)&&altitude in 0.0..15.0&&speed<.30&&!sim.parachuteDeployed)
+                            SmallButton("${cameraZoom.toInt()}×",{cameraZoom=1f;cameraPan=Offset.Zero},Modifier.weight(.8f))
+                        }
+                        Spacer(Modifier.height(3.dp))
+                        Text("TWR %.2f · MAX Q %.0f kPa · HEAT %.0f%%".format(twr,sim.maxDynamicPressureKpa,(sim.heat*100).coerceIn(0.0,150.0)),fontSize=9.sp,color=Muted,modifier=Modifier.padding(start=4.dp))
+                    }
+                }
+            }
+            if(sim.crashed||sim.landed||sim.docked){
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    when{
+                        sim.crashed->"VEHICLE LOST · CHECK STAGING / HEAT / RE-ENTRY"
+                        sim.landed->if(sim.maxAltitudeKm>=80)"SAFE RECOVERY · MISSION RECORDED" else "SOFT LANDING · FLIGHT RECORDED"
+                        else->"DOCKING COMPLETE · RELATIVE MOTION MATCHED"
+                    },
+                    modifier=Modifier.fillMaxWidth().background(Color(0xCC101923),RoundedCornerShape(9.dp)).padding(8.dp),
+                    fontSize=10.sp,fontWeight=FontWeight.Black,color=if(sim.crashed)Red else Green
                 )
-                drawCircle(Brush.radialGradient(listOf(Color(0x6654BFFF),Color(0x2254BFFF),Color.Transparent),earthCenter,earthR*1.55f),earthR*1.55f,earthCenter)
-                drawCircle(Brush.radialGradient(listOf(Color(0xFF459CD5),Color(0xFF1D568D),Color(0xFF071326)),Offset(earthCenter.x-earthR*.32f,earthCenter.y-earthR*.36f),earthR*1.65f),earthR,earthCenter)
-                val continentA=Path().apply{
-                    moveTo(earthCenter.x-earthR*.74f,earthCenter.y-earthR*.20f)
-                    lineTo(earthCenter.x-earthR*.48f,earthCenter.y-earthR*.43f)
-                    lineTo(earthCenter.x-earthR*.20f,earthCenter.y-earthR*.32f)
-                    lineTo(earthCenter.x-earthR*.09f,earthCenter.y-earthR*.09f)
-                    lineTo(earthCenter.x-earthR*.29f,earthCenter.y+earthR*.12f)
-                    lineTo(earthCenter.x-earthR*.39f,earthCenter.y+earthR*.43f)
-                    lineTo(earthCenter.x-earthR*.65f,earthCenter.y+earthR*.33f)
-                    close()
-                }
-                drawPath(continentA,Brush.linearGradient(listOf(Color(0xFF89C984),Color(0xFF2C6954)),Offset(earthCenter.x-earthR,earthCenter.y-earthR),Offset(earthCenter.x,earthCenter.y+earthR)))
-                val continentB=Path().apply{
-                    moveTo(earthCenter.x+earthR*.08f,earthCenter.y-earthR*.43f)
-                    lineTo(earthCenter.x+earthR*.48f,earthCenter.y-earthR*.30f)
-                    lineTo(earthCenter.x+earthR*.66f,earthCenter.y-earthR*.02f)
-                    lineTo(earthCenter.x+earthR*.42f,earthCenter.y+earthR*.18f)
-                    lineTo(earthCenter.x+earthR*.22f,earthCenter.y+earthR*.44f)
-                    lineTo(earthCenter.x+earthR*.07f,earthCenter.y+earthR*.13f)
-                    close()
-                }
-                drawPath(continentB,Brush.linearGradient(listOf(Color(0xFF8CC681),Color(0xFF3D8058)),Offset(earthCenter.x,earthCenter.y-earthR),Offset(earthCenter.x+earthR,earthCenter.y+earthR)))
-                repeat(4){i->
-                    val yy=earthCenter.y-earthR*.45f+i*earthR*.27f
-                    drawOval(Color(0x99D8F0FF),topLeft=Offset(earthCenter.x-earthR*.67f,yy),size=Size(earthR*1.25f,earthR*.065f),style=Stroke(width=max(1f,earthR*.03f)))
-                }
-                drawCircle(Color(0xBB59CBFF),earthR,earthCenter,style=Stroke(width=max(1.5f,earthR*.025f)))
-                // Flight trail in the camera frame.
-                if(sim.trail.size>1){
-                    val path=Path()
-                    sim.trail.forEachIndexed{idx,p->
-                        val q=Offset(center.x+((p.x-sim.pos.x)*scale).toFloat(),center.y-((p.y-sim.pos.y)*scale).toFloat())
-                        if(idx==0)path.moveTo(q.x,q.y)else path.lineTo(q.x,q.y)
-                    }
-                    drawPath(path,color=Color(0x7745D7FF),style=Stroke(width=6f))
-                    drawPath(path,color=Cyan,style=Stroke(width=2.4f))
-                }
-                // The target is projected to a readable reticle; range remains physically measured in the HUD.
-                if(sim.docking&&sim.targetPos!=null){
-                    val delta=sim.targetPos-sim.pos
-                    val u=delta.normalized()
-                    val targetScreen=Offset(center.x+u.x.toFloat()*78f,center.y-u.y.toFloat()*78f)
-                    drawLine(Color(0x8845D7FF),center,targetScreen,1.5f)
-                    drawCircle(Color(0x3345D7FF),17f,targetScreen)
-                    drawCircle(Cyan,12f,targetScreen,style=Stroke(width=2f))
-                    drawLine(Cyan,Offset(targetScreen.x-17f,targetScreen.y),Offset(targetScreen.x+17f,targetScreen.y),1.5f)
-                    drawLine(Cyan,Offset(targetScreen.x,targetScreen.y-17f),Offset(targetScreen.x,targetScreen.y+17f),1.5f)
-                    drawCircle(Color.White,3f,targetScreen)
-                }
-                // Engine plume, body and attitude marker.
-                val rp=center
-                val fx=cos(sim.angle).toFloat()
-                val fy=-sin(sim.angle).toFloat()
-                val bx=-fx
-                val by=-fy
-                val sideX=-fy
-                val sideY=fx
-                if(sim.fuel>0.01&&sim.throttle>0.01&&!sim.crashed&&!sim.landed&&!sim.docked){
-                    val flameLength=14f+sim.throttle.toFloat()*28f
-                    val flame=Path().apply{
-                        moveTo(rp.x+bx*8f+sideX*3.5f,rp.y+by*8f+sideY*3.5f)
-                        lineTo(rp.x+bx*flameLength,rp.y+by*flameLength)
-                        lineTo(rp.x+bx*8f-sideX*3.5f,rp.y+by*8f-sideY*3.5f)
-                        close()
-                    }
-                    drawPath(flame,Brush.verticalGradient(listOf(Color(0xFFFFF5C9),Color(0xFFFFA13B),Color(0x55FF4B30)),startY=rp.y-30f,endY=rp.y+36f))
-                    drawCircle(Color(0x44FF8A35),10f,Offset(rp.x+bx*10f,rp.y+by*10f))
-                    repeat(9){i->
-                        val t=i/8f
-                        drawCircle(Color(0x44FFC078),1.8f*(1f-t),Offset(rp.x+bx*(12f+i*3.7f)+sin((sim.time+i)*2.4).toFloat()*2f,rp.y+by*(12f+i*3.7f)))
-                    }
-                }
-                val body=Path().apply{
-                    moveTo(rp.x+fx*14f,rp.y+fy*14f)
-                    lineTo(rp.x-fx*8f+sideX*5.2f,rp.y-fy*8f+sideY*5.2f)
-                    lineTo(rp.x-fx*6f,rp.y-fy*6f)
-                    lineTo(rp.x-fx*8f-sideX*5.2f,rp.y-fy*8f-sideY*5.2f)
-                    close()
-                }
-                drawPath(body,Brush.linearGradient(listOf(Color.White,Color(0xFF9BACBF),Color(0xFF404F68)),Offset(rp.x-8f,rp.y-8f),Offset(rp.x+8f,rp.y+8f)))
-                drawCircle(Color(0xFF45D7FF),2.2f,Offset(rp.x+fx*2.5f,rp.y+fy*2.5f))
-                drawCircle(Color.White,2f,rp)
-                if(sim.heat>.65){
-                    drawRoundRect(Color(0x66FF5369),Offset(2f,2f),Size(size.width-4f,size.height-4f),CornerRadius(18f),style=Stroke(width=4f))
-                }
             }
-        }
-        Spacer(Modifier.height(5.dp))
-        Row(verticalAlignment=Alignment.CenterVertically){
-            Text("THROTTLE",color=Muted,fontSize=11.sp,fontWeight=FontWeight.Black)
-            Spacer(Modifier.width(8.dp))
-            Text("${(sim.throttle*100).roundToInt()}%",color=Ink,fontSize=14.sp,fontWeight=FontWeight.Black)
-            Spacer(Modifier.weight(1f))
-            Text(if(sim.parachuteDeployed)"CHUTE DEPLOYED" else "T+ ${sim.time.roundToInt()} s",color=if(sim.parachuteDeployed)Green else Muted,fontSize=11.sp,fontWeight=FontWeight.Bold)
-        }
-        Slider(value=sim.throttle.toFloat(),onValueChange={onTick(sim.copy(throttle=it.toDouble()))},valueRange=0f..1f,modifier=Modifier.heightIn(min=36.dp),colors=SliderDefaults.colors(thumbColor=Cyan,activeTrackColor=Cyan))
-        Row(horizontalArrangement=Arrangement.spacedBy(6.dp),modifier=Modifier.fillMaxWidth()){
-            SmallButton(if(paused)"RESUME" else "PAUSE",{paused=!paused},Modifier.weight(1f))
-            SmallButton("STAGE",{onTick(separateStage(sim))},Modifier.weight(1f),enabled=sim.parts.contains(PartType.DECOUPLER))
-            SmallButton(if(sim.parachuteDeployed)"CHUTE ✓" else "CHUTE",{
-                val currentAlt=sim.pos.mag()-EARTH_RADIUS_KM
-                if(PartType.PARACHUTE in activeStageParts(sim.parts)&&currentAlt in 0.0..15.0&&sim.vel.mag()<0.30)onTick(sim.copy(parachuteDeployed=true))
-            },Modifier.weight(1f),enabled=PartType.PARACHUTE in activeStageParts(sim.parts)&&altitude in 0.0..15.0&&speed<0.30&&!sim.parachuteDeployed)
-            SmallButton("WARP ×$timeWarp",{timeWarp=if(timeWarp==1)5 else if(timeWarp==5)20 else 1},Modifier.weight(1f))
-        }
-        Row(horizontalArrangement=Arrangement.spacedBy(6.dp),modifier=Modifier.fillMaxWidth()){
-            SmallButton("P−",{pitchOffset=(pitchOffset-5f).coerceIn(0f,180f);onTick(sim.copy(guidance=Guidance.MANUAL))},Modifier.weight(1f))
-            SmallButton("MAN",{onTick(sim.copy(guidance=Guidance.MANUAL))},Modifier.weight(1f))
-            SmallButton("P+",{pitchOffset=(pitchOffset+5f).coerceIn(0f,180f);onTick(sim.copy(guidance=Guidance.MANUAL))},Modifier.weight(1f))
-            SmallButton("PRO",{onTick(sim.copy(guidance=Guidance.PROGRADE))},Modifier.weight(1f))
-            SmallButton("RET",{onTick(sim.copy(guidance=Guidance.RETROGRADE))},Modifier.weight(1f))
-        }
-        if(sim.docking&&rangeMeters!=null&&relativeSpeed!=null){
-            Surface(color=Panel2,shape=RoundedCornerShape(14.dp),modifier=Modifier.fillMaxWidth().padding(top=4.dp)){
-                Column(Modifier.padding(horizontal=10.dp,vertical=7.dp)){
-                    Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.fillMaxWidth()){
-                        Column(Modifier.weight(1f)){
-                            Text("TARGET RANGE",fontSize=10.sp,color=Muted,fontWeight=FontWeight.Bold)
-                            Text(if(rangeMeters>=1000)"%.2f km".format(rangeMeters/1000.0) else "%.1f m".format(rangeMeters),fontSize=15.sp,fontWeight=FontWeight.Black)
-                        }
-                        Column(Modifier.weight(1f)){
-                            Text("RELATIVE SPEED",fontSize=10.sp,color=Muted,fontWeight=FontWeight.Bold)
-                            Text("%.2f m/s".format(relativeSpeed),fontSize=15.sp,fontWeight=FontWeight.Black,color=if(relativeSpeed<0.5)Green else Orange)
-                        }
-                    }
-                    Spacer(Modifier.height(5.dp))
-                    Row(horizontalArrangement=Arrangement.spacedBy(6.dp),modifier=Modifier.fillMaxWidth()){
-                        SmallButton("APPROACH", {onTick(applyDockingApproach(sim))},Modifier.weight(1f),enabled=!sim.docked)
-                        SmallButton("MATCH V", {onTick(matchDockingVelocity(sim))},Modifier.weight(1f),enabled=!sim.docked)
-                        SmallButton("DOCK", {val docked=attemptDock(sim);onTick(docked);if(docked.docked)onMission("dock")},Modifier.weight(1f),enabled=!sim.docked&&rangeMeters<=5.0&&relativeSpeed<=0.5)
-                    }
-                }
-            }
-        }
-        if(sim.crashed){
-            Surface(color=Color(0xEE341321),shape=RoundedCornerShape(14.dp),modifier=Modifier.fillMaxWidth().padding(top=4.dp)){Text("VEHICLE LOST · REVIEW TWR, Q AND RE-ENTRY",color=Red,fontWeight=FontWeight.Black,fontSize=12.sp,modifier=Modifier.padding(10.dp))}
-        }else if(sim.landed){
-            Surface(color=Color(0xEE0D2A1F),shape=RoundedCornerShape(14.dp),modifier=Modifier.fillMaxWidth().padding(top=4.dp)){Text(if(sim.maxAltitudeKm>=80)"SAFE RECOVERY · CLAIM FIRST LIGHT" else "SAFE LANDING · FLIGHT RECORDED",color=Green,fontWeight=FontWeight.Black,fontSize=12.sp,modifier=Modifier.padding(10.dp))}
-        }else if(sim.docked){
-            Surface(color=Color(0xEE0D2A1F),shape=RoundedCornerShape(14.dp),modifier=Modifier.fillMaxWidth().padding(top=4.dp)){Text("DOCKING SUCCESSFUL · RELATIVE MOTION MATCHED",color=Green,fontWeight=FontWeight.Black,fontSize=12.sp,modifier=Modifier.padding(10.dp))}
-        }else if(orbit.periapsisAltitudeKm<0&&altitude>80){
-            Text("WARNING · IMPACT TRAJECTORY — RAISE PERIAPSIS",fontSize=11.sp,color=Red,fontWeight=FontWeight.Bold)
         }
     }
 }
