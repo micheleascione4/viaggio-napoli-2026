@@ -13,7 +13,8 @@ data class VehicleAnalysis(
 
 fun analyzeVehicle(rocket:Rocket):VehicleAnalysis{
     val mass=rocket.dryMass+rocket.fuel
-    val twr=if(mass>0)rocket.thrust/(mass*9.81) else 0.0
+    val activeThrust=activeStageParts(rocket.parts).sumOf{it.thrust}
+    val twr=if(mass>0)activeThrust/(mass*9.80665) else 0.0
     val dv=rocket.deltaV*1000.0
     val altitude=(dv*dv/(2*9.80665)/1000.0).toInt()
     val warnings=buildList{
@@ -23,5 +24,5 @@ fun analyzeVehicle(rocket:Rocket):VehicleAnalysis{
         if(rocket.fuel<=0)add("No usable propellant")
         if(rocket.parts.size>18)add("Vehicle is getting heavy and complex")
     }
-    return VehicleAnalysis(mass,rocket.dryMass,rocket.fuel,rocket.thrust,twr,dv,altitude,warnings)
+    return VehicleAnalysis(mass,rocket.dryMass,rocket.fuel,activeThrust,twr,dv,altitude,warnings)
 }
