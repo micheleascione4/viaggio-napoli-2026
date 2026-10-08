@@ -28,7 +28,7 @@ import kotlin.math.*
 import kotlin.random.Random
 import kotlinx.coroutines.delay
 
-private data class Game(val id:Int,val name:String,val emoji:String,val desc:String)
+data class Game(val id:Int,val name:String,val emoji:String,val desc:String)
 private val games = listOf(
  Game(1,"Tap Rush","⚡","10 hits. No mercy."), Game(2,"Reaction","🟢","Wait. Then strike."),
  Game(3,"Bullseye","🎯","Precision beats speed."), Game(4,"Memory Grid","🧠","Remember the flash."),
@@ -116,10 +116,10 @@ fun GameScreen(game:Game,onBack:()->Unit,onScore:(Int)->Unit){
    Canvas(Modifier.fillMaxSize()){
     val w=size.width;val h=size.height
     when(game.id){
-     4,5,10,12,17->{for(i in 0 until 9){val cx=(i%3+.5f)*w/3;val cy=(i/3+.5f)*h/3;val active=i==selectedCell&&(flash||game.id==5||game.id==12||game.id==17);drawRoundRect(if(active)palette[game.id%palette.size] else Color(0xFF171C30),Rect(cx-w/3+8,cy-h/3+8,cx+w/3-8,cy+h/3-8),18f)}}
-     7->{for(i in 0..round)drawRoundRect(palette[(i+1)%palette.size],Rect(w*.25f-i*2,h*.82f-i*28,w*.75f+i*2,h*.82f-i*28+24),12f)}
-     11->{drawCircle(Color.White,18f,Offset(w*.5f,h*(.25f+(round%5)*.12f)));drawRoundRect(palette[1],Rect(w*.35f,h*.82f,w*.65f,h*.86f),18f)}
-     14->{drawRoundRect(Color(0xFF222943),Rect(w*.08f,h*.45f,w*.92f,h*.55f),20f);drawRoundRect(palette[3],Rect(w*.45f,h*.40f,w*.55f,h*.60f),14f);drawCircle(palette[1],20f,Offset(w*(.08f+.84f*timer),h*.5f))}
+     4,5,10,12,17->{for(i in 0 until 9){val cx=(i%3+.5f)*w/3;val cy=(i/3+.5f)*h/3;val active=i==selectedCell&&(flash||game.id==5||game.id==12||game.id==17);drawRoundRect(if(active)palette[game.id%palette.size] else Color(0xFF171C30),topLeft=Offset(cx-w/3+8,cy-h/3+8),size=Size(w*2/3-16,h*2/3-16),cornerRadius=CornerRadius(18f))}}
+     7->{for(i in 0..round)drawRoundRect(palette[(i+1)%palette.size],topLeft=Offset(w*.25f-i*2,h*.82f-i*28),size=Size(w*.5f+i*4,24f),cornerRadius=CornerRadius(12f))}
+     11->{drawCircle(Color.White,18f,Offset(w*.5f,h*(.25f+(round%5)*.12f)));drawRoundRect(palette[1],topLeft=Offset(w*.35f,h*.82f),size=Size(w*.3f,h*.04f),cornerRadius=CornerRadius(18f))}
+     14->{drawRoundRect(Color(0xFF222943),topLeft=Offset(w*.08f,h*.45f),size=Size(w*.84f,h*.10f),cornerRadius=CornerRadius(20f));drawRoundRect(palette[3],topLeft=Offset(w*.45f,h*.40f),size=Size(w*.10f,h*.20f),cornerRadius=CornerRadius(14f));drawCircle(palette[1],20f,Offset(w*(.08f+.84f*timer),h*.5f))}
      else->{val r=if(game.id==3)52f else 68f;drawCircle(palette[game.id%palette.size],r,Offset(w*target.x,h*target.y));drawCircle(Color.White,r*.22f,Offset(w*target.x,h*target.y))}
     }
    }
