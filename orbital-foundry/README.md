@@ -10,6 +10,13 @@ This is an original implementation. No game assets, code, or UI are copied.
 
 **Deep when wanted:** contracts, funds, science, technology, telemetry, orbital guidance, trajectory prediction and vehicle analysis.
 
+## v0.4 interface and sandbox pass
+- Compact blue-grid vehicle builder with a narrow vertical parts rail, stack dialog and a larger rocket viewport.
+- Dedicated unrestricted sandbox entry with all parts unlocked for free experimentation.
+- Minimal transparent flight controls over a nearly full-screen world view; guidance, time warp and recovery controls are under MORE.
+- Pinch-to-zoom and drag-to-pan on the system map, with quick Universe/Earth framing.
+- Earth Blue Marble and Mars surface maps are downloaded during the Android build and bundled in the APK, so gameplay is offline.
+
 ## Planned milestones
 
 - [x] native Android project

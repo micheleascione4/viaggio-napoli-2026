@@ -2,7 +2,7 @@ name: Build Orbital Foundry APK
 
 on:
   push:
-    branches: [ main, orbital-foundry-v1, orbital-foundry-graphics-stage3 ]
+    branches: [ main, orbital-foundry-v1, orbital-foundry-graphics-stage3, orbital-foundry-sfs-interface-v04 ]
   workflow_dispatch:
 
 concurrency:
@@ -26,6 +26,13 @@ jobs:
           gradle-version: "8.9"
       - name: Run flight physics tests
         run: gradle --no-daemon -p orbital-foundry :app:testDebugUnitTest
+      - name: Download freely usable planet texture maps
+        run: |
+          mkdir -p orbital-foundry/app/src/main/assets/textures
+          curl --fail --location --silent --show-error --retry 3 https://svs.gsfc.nasa.gov/vis/a000000/a002900/a002915/bluemarble-2048.png --output orbital-foundry/app/src/main/assets/textures/earth.png
+          curl --fail --location --silent --show-error --retry 3 https://space.jpl.nasa.gov/tmaps/pix/mar0kuu2.jpg --output orbital-foundry/app/src/main/assets/textures/mars.jpg
+          test -s orbital-foundry/app/src/main/assets/textures/earth.png
+          test -s orbital-foundry/app/src/main/assets/textures/mars.jpg
       - name: Build debug APK
         run: gradle --no-daemon -p orbital-foundry :app:assembleDebug
       - name: Verify APK

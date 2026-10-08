@@ -1,15 +1,21 @@
 package com.michele.orbitalfoundry
 
 import android.os.Bundle
+import android.content.Context
+import android.graphics.BitmapFactory
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -24,6 +30,13 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -179,6 +192,46 @@ class MainActivity:ComponentActivity(){
     }
 }
 
+private fun loadPlanetTexture(context:Context,name:String):ImageBitmap? =
+    runCatching{
+        context.assets.open("textures/$name").use{stream->
+            BitmapFactory.decodeStream(stream)?.asImageBitmap()
+        }
+    }.getOrNull()
+
+private fun DrawScope.drawTexturedPlanet(
+    texture:ImageBitmap?,center:Offset,radius:Float,
+    fallback:List<Color>
+){
+    if(radius<=1f)return
+    drawCircle(Brush.radialGradient(fallback,Offset(center.x-radius*.32f,center.y-radius*.32f),radius*1.9f),radius,center)
+    if(texture!=null){
+        val planetPath=Path().apply{addOval(androidx.compose.ui.geometry.Rect(center.x-radius,center.y-radius,center.x+radius,center.y+radius))}
+        val dstOffset=IntOffset((center.x-radius).roundToInt(),(center.y-radius).roundToInt())
+        val dstSize=IntSize((radius*2f).roundToInt().coerceAtLeast(1),(radius*2f).roundToInt().coerceAtLeast(1))
+        clipPath(planetPath){
+            drawImage(
+                image=texture,
+                srcOffset=IntOffset(texture.width/4,0),
+                srcSize=IntSize((texture.width/2).coerceAtLeast(1),texture.height),
+                dstOffset=dstOffset,
+                dstSize=dstSize,
+                filterQuality=FilterQuality.High
+            )
+            drawCircle(
+                Brush.radialGradient(
+                    colors=listOf(Color.Transparent,Color(0x66030A20)),
+                    center=Offset(center.x+radius*.52f,center.y+radius*.12f),
+                    radius=radius*1.18f
+                ),
+                radius,
+                center
+            )
+        }
+    }
+    drawCircle(Color(0x664BC3FF),radius,center,style=Stroke(width=max(1.2f,radius*.018f)))
+}
+
 @Composable
 fun OrbitalFoundryApp(
     showTutorialOnStart:Boolean,
@@ -190,24 +243,29 @@ fun OrbitalFoundryApp(
     onSaveMissions:(Set<String>)->Unit,
     onSaveCareer:(CareerState)->Unit
 ){
+    val context=LocalContext.current
+    val earthTexture=remember{loadPlanetTexture(context,"earth.png")}
+    val marsTexture=remember{loadPlanetTexture(context,"mars.jpg")}
     MaterialTheme(colorScheme=darkColorScheme(background=Bg,surface=Panel,primary=Violet,onBackground=Ink,onSurface=Ink)){
         var screen by rememberSaveable{mutableStateOf(if(showTutorialOnStart)Screen.TUTORIAL else Screen.HOME)}
         var rocket by remember{mutableStateOf(initialRocket)}
         var sim by remember{mutableStateOf<SimState?>(null)}
         var missions by remember{mutableStateOf(initialMissions)}
         var career by remember{mutableStateOf(initialCareer)}
+        var sandboxMode by rememberSaveable{mutableStateOf(false)}
         LaunchedEffect(rocket){onSaveRocket(rocket)}
         LaunchedEffect(missions){onSaveMissions(missions)}
         LaunchedEffect(career){onSaveCareer(career)}
         when(screen){
             Screen.HOME->HomeScreen(rocket,missions,career,
-                {screen=Screen.BUILD},
+                {sandboxMode=false;screen=Screen.BUILD},
                 {if(rocket.hasEngine&&rocket.hasCapsule){sim=launchState(rocket);screen=Screen.FLIGHT}},
                 {screen=Screen.MISSIONS},
                 {screen=Screen.TUTORIAL},
+                {sandboxMode=true;screen=Screen.BUILD},
                 {if(rocket.hasDockingPort&&rocket.hasRcs){sim=beginDockingPractice(rocket);screen=Screen.FLIGHT}}
             )
-            Screen.BUILD->BuilderScreen(rocket,career.unlocked,
+            Screen.BUILD->BuilderScreen(rocket,career.unlocked,sandboxMode,
                 {p->rocket=addPartInUsefulPosition(rocket,p)},
                 {rocket=addUpperStage(rocket)},
                 {index->val l=rocket.parts.toMutableList();if(index in l.indices)l.removeAt(index);rocket=rocket.copy(parts=l)},
@@ -221,12 +279,12 @@ fun OrbitalFoundryApp(
                 {if(rocket.hasEngine&&rocket.hasCapsule){sim=launchState(rocket);screen=Screen.FLIGHT}}
             )
             Screen.MISSIONS->MissionScreen(missions,career,{career=it},{screen=Screen.HOME})
-            Screen.FLIGHT->{val s=sim;if(s!=null)FlightScreen(s,
+            Screen.FLIGHT->{val s=sim;if(s!=null)FlightScreen(s,earthTexture,marsTexture,
                 {next->sim=next;missions=missions+missionCompletions(next)},
                 {screen=Screen.MAP},{screen=Screen.HOME},
                 {name->missions=missions+name}
             )}
-            Screen.MAP->{val s=sim;if(s!=null)MapScreen(s,{screen=Screen.FLIGHT})}
+            Screen.MAP->{val s=sim;if(s!=null)MapScreen(s,earthTexture,marsTexture,{screen=Screen.FLIGHT})}
             Screen.TUTORIAL->TutorialScreen({onTutorialComplete();screen=Screen.HOME},{onTutorialComplete();screen=Screen.HOME})
         }
     }
@@ -302,83 +360,74 @@ private fun Shell(title:String,subtitle:String,onBack:()->Unit,content:@Composab
 @Composable
 private fun HomeScreen(
     rocket:Rocket,missions:Set<String>,career:CareerState,
-    onBuild:()->Unit,onLaunch:()->Unit,onMissions:()->Unit,onTutorial:()->Unit,onDocking:()->Unit
+    onBuild:()->Unit,onLaunch:()->Unit,onMissions:()->Unit,onTutorial:()->Unit,
+    onSandbox:()->Unit,onDocking:()->Unit
 ){
-    Column(Modifier.fillMaxSize().background(Bg).padding(horizontal=16.dp, vertical=12.dp)){
-        Row(verticalAlignment=Alignment.CenterVertically){
+    Column(
+        Modifier.fillMaxSize().background(Bg).verticalScroll(rememberScrollState())
+            .padding(horizontal=16.dp,vertical=10.dp)
+    ){
+        Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.fillMaxWidth()){
             Column(Modifier.weight(1f)){
-                Text("ORBITAL",fontSize=38.sp,fontWeight=FontWeight.Black,lineHeight=38.sp)
-                Text("FOUNDRY",fontSize=18.sp,fontWeight=FontWeight.Bold,color=Violet)
-                Text("ROCKET ENGINEERING SIMULATOR",color=Muted,fontSize=11.sp,letterSpacing=1.sp)
+                Text("ORBITAL FOUNDRY",fontSize=24.sp,fontWeight=FontWeight.Black,lineHeight=28.sp,letterSpacing=(-.4).sp)
+                Text("BUILD · FLY · EXPLORE",color=Cyan,fontSize=10.sp,fontWeight=FontWeight.Bold,letterSpacing=1.4.sp)
             }
-            Box(Modifier.size(56.dp).background(Panel2,CircleShape),contentAlignment=Alignment.Center){
-                RocketPartThumbnail(PartType.ENGINE)
-            }
-        }
-        Spacer(Modifier.height(12.dp))
-        Surface(color=Panel,shape=RoundedCornerShape(22.dp),modifier=Modifier.fillMaxWidth()){
-            Column(Modifier.padding(14.dp)){
-                Row(verticalAlignment=Alignment.CenterVertically){
-                    Column(Modifier.weight(1f)){
-                        Text("FLIGHT VEHICLE",color=Green,fontSize=11.sp,fontWeight=FontWeight.Black,letterSpacing=1.sp)
-                        Text(if(rocket.hasEngine&&rocket.hasCapsule)"Ready for launch" else "Complete the vehicle",fontSize=20.sp,fontWeight=FontWeight.Black)
-                    }
-                    Surface(color=Panel2,shape=RoundedCornerShape(12.dp)){
-                        Text("${rocket.parts.size} PARTS",modifier=Modifier.padding(horizontal=10.dp,vertical=7.dp),fontSize=11.sp,fontWeight=FontWeight.Bold,color=Cyan)
-                    }
-                }
-                Spacer(Modifier.height(10.dp))
-                Row(horizontalArrangement=Arrangement.spacedBy(7.dp),modifier=Modifier.fillMaxWidth()){
-                    Metric("FUNDS","€${career.funds/1000}K",Modifier.weight(1f))
-                    Metric("SCIENCE","${career.science}",Modifier.weight(1f))
-                    Metric("TECH","${career.unlocked.size}",Modifier.weight(1f))
-                }
-                Spacer(Modifier.height(7.dp))
-                Row(horizontalArrangement=Arrangement.spacedBy(7.dp),modifier=Modifier.fillMaxWidth()){
-                    Metric("WET MASS","%.1f t".format(rocket.dryMass+rocket.fuel),Modifier.weight(1f))
-                    Metric("PROPELLANT","%.0f t".format(rocket.fuel),Modifier.weight(1f))
-                    Metric("TOTAL ΔV","%.2f km/s".format(rocket.deltaV),Modifier.weight(1f))
-                }
-                Spacer(Modifier.height(12.dp))
-                Button(onClick=onLaunch,enabled=rocket.hasEngine&&rocket.hasCapsule,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp),shape=RoundedCornerShape(14.dp)){
-                    Text("LAUNCH MISSION",fontWeight=FontWeight.Black,fontSize=14.sp)
-                }
-                OutlinedButton(onClick=onBuild,modifier=Modifier.fillMaxWidth().heightIn(min=46.dp),shape=RoundedCornerShape(14.dp)){
-                    Text("VEHICLE ASSEMBLY",fontWeight=FontWeight.Bold,fontSize=13.sp)
-                }
+            TextButton(onClick=onTutorial,contentPadding=PaddingValues(6.dp)){
+                Text("?",fontSize=24.sp,fontWeight=FontWeight.Black,color=Ink)
             }
         }
-        Spacer(Modifier.height(10.dp))
-        Row(horizontalArrangement=Arrangement.spacedBy(9.dp),modifier=Modifier.fillMaxWidth()){
-            ActionCard("⌘","VEHICLE LAB","Parts · stages · ΔV",onBuild,Modifier.weight(1f))
-            ActionCard("◈","MISSIONS","${missions.size} objectives complete",onMissions,Modifier.weight(1f))
+        Spacer(Modifier.height(8.dp))
+        Box(
+            Modifier.fillMaxWidth().height(250.dp).background(Color(0xFF315A82),RoundedCornerShape(18.dp))
+        ){
+            RocketStackPreview(rocket,Modifier.fillMaxSize())
+            Surface(color=Color(0xCC071320),shape=RoundedCornerShape(topStart=16.dp,bottomEnd=12.dp),modifier=Modifier.align(Alignment.TopStart)){
+                Column(Modifier.padding(horizontal=12.dp,vertical=8.dp)){
+                    Text("CURRENT VEHICLE",fontSize=9.sp,color=Cyan,fontWeight=FontWeight.Black,letterSpacing=1.sp)
+                    Text(if(rocket.hasEngine&&rocket.hasCapsule)"FLIGHT READY" else "INCOMPLETE STACK",fontSize=15.sp,fontWeight=FontWeight.Black)
+                }
+            }
+            Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(Color(0xBB071320)).padding(horizontal=12.dp,vertical=8.dp)){
+                Row(horizontalArrangement=Arrangement.SpaceBetween,modifier=Modifier.fillMaxWidth()){
+                    Text("MASS  %.1f t".format(rocket.dryMass+rocket.fuel),fontSize=11.sp,fontWeight=FontWeight.Bold)
+                    Text("FUEL  %.0f t".format(rocket.fuel),fontSize=11.sp,fontWeight=FontWeight.Bold)
+                    Text("ΔV  %.1f km/s".format(rocket.deltaV),fontSize=11.sp,fontWeight=FontWeight.Bold,color=Cyan)
+                }
+            }
         }
         Spacer(Modifier.height(9.dp))
-        OutlinedButton(
-            onClick=onDocking, enabled=rocket.hasDockingPort&&rocket.hasRcs,
-            modifier=Modifier.fillMaxWidth().heightIn(min=46.dp),shape=RoundedCornerShape(14.dp)
+        Button(
+            onClick=onBuild,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp),
+            shape=RoundedCornerShape(12.dp),contentPadding=PaddingValues(10.dp)
         ){
-            Text(if(rocket.hasDockingPort&&rocket.hasRcs)"OPEN ORBITAL DOCKING RANGE" else "DOCKING RANGE · ADD RCS + DOCKING PORT",fontSize=12.sp,fontWeight=FontWeight.Bold)
+            Text("BUILD ROCKET",fontWeight=FontWeight.Black,letterSpacing=.5.sp)
         }
         Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()){
-            OutlinedButton(onClick=onTutorial,modifier=Modifier.weight(1f).heightIn(min=42.dp),shape=RoundedCornerShape(12.dp)){
-                Text("FLIGHT TUTORIAL",fontSize=11.sp,fontWeight=FontWeight.Bold)
+            OutlinedButton(onClick=onSandbox,modifier=Modifier.weight(1f).heightIn(min=46.dp),shape=RoundedCornerShape(12.dp)){
+                Text("SANDBOX",fontWeight=FontWeight.Black,fontSize=12.sp)
             }
-            OutlinedButton(onClick=onMissions,modifier=Modifier.weight(1f).heightIn(min=42.dp),shape=RoundedCornerShape(12.dp)){
-                Text("CAREER / TECH TREE",fontSize=11.sp,fontWeight=FontWeight.Bold)
+            OutlinedButton(onClick=onLaunch,enabled=rocket.hasEngine&&rocket.hasCapsule,modifier=Modifier.weight(1f).heightIn(min=46.dp),shape=RoundedCornerShape(12.dp)){
+                Text("QUICK LAUNCH",fontWeight=FontWeight.Black,fontSize=12.sp)
             }
         }
         Spacer(Modifier.height(7.dp))
-        Surface(color=Panel2,shape=RoundedCornerShape(16.dp),modifier=Modifier.fillMaxWidth()){
-            Row(Modifier.padding(12.dp),verticalAlignment=Alignment.CenterVertically){
-                Text("●",color=Cyan,fontSize=13.sp)
-                Spacer(Modifier.width(9.dp))
-                Column{
-                    Text("FLIGHT COMPUTER",fontSize=11.sp,fontWeight=FontWeight.Black,letterSpacing=.8.sp)
-                    Text("Atmospheric drag · staged propellant · orbital elements · re-entry heating",fontSize=11.sp,color=Muted,lineHeight=15.sp)
-                }
+        Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.fillMaxWidth()){
+            Column(Modifier.weight(1f)){
+                Text("CAREER",fontSize=12.sp,color=Muted,fontWeight=FontWeight.Black,letterSpacing=1.1.sp)
+                Text("€${career.funds/1000}K   ·   ${career.science} SCI   ·   ${career.unlocked.size} TECH",fontSize=12.sp,fontWeight=FontWeight.Bold)
+            }
+            TextButton(onClick=onMissions){Text("MISSIONS  →",fontWeight=FontWeight.Black,fontSize=11.sp)}
+        }
+        Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()){
+            OutlinedButton(onClick=onDocking,enabled=rocket.hasDockingPort&&rocket.hasRcs,modifier=Modifier.weight(1f).heightIn(min=42.dp),shape=RoundedCornerShape(10.dp)){
+                Text("DOCKING RANGE",fontSize=10.sp,fontWeight=FontWeight.Bold)
+            }
+            OutlinedButton(onClick=onMissions,modifier=Modifier.weight(1f).heightIn(min=42.dp),shape=RoundedCornerShape(10.dp)){
+                Text("TECH TREE",fontSize=10.sp,fontWeight=FontWeight.Bold)
             }
         }
+        Spacer(Modifier.height(6.dp))
+        Text("${missions.size} FLIGHT MILESTONES RECORDED",fontSize=10.sp,color=Muted)
     }
 }
 
@@ -412,11 +461,11 @@ private fun RocketPartThumbnail(part:PartType){
 }
 
 @Composable
-private fun RocketStackPreview(rocket:Rocket){
-    Canvas(Modifier.fillMaxSize()){
-        drawRect(Brush.verticalGradient(listOf(Color(0xFF10192B),Color(0xFF070A13))),size=Size(size.width,size.height))
-        for(x in 0..(size.width/28f).toInt()) drawLine(Color(0x263C5579),Offset(x*28f,0f),Offset(x*28f,size.height),1f)
-        for(y in 0..(size.height/28f).toInt()) drawLine(Color(0x263C5579),Offset(0f,y*28f),Offset(size.width,y*28f),1f)
+private fun RocketStackPreview(rocket:Rocket,modifier:Modifier=Modifier){
+    Canvas(modifier.fillMaxSize()){
+        drawRect(Brush.verticalGradient(listOf(Color(0xFF3B6997),Color(0xFF294E76),Color(0xFF193A5E))),size=Size(size.width,size.height))
+        for(x in 0..(size.width/28f).toInt()) drawLine(Color(0x337DC3F0),Offset(x*28f,0f),Offset(x*28f,size.height),1f)
+        for(y in 0..(size.height/28f).toInt()) drawLine(Color(0x337DC3F0),Offset(0f,y*28f),Offset(size.width,y*28f),1f)
         val halo=Offset(size.width*.5f,size.height*.56f)
         drawCircle(Brush.radialGradient(listOf(Color(0x443E8BFF),Color(0x113E8BFF),Color.Transparent),halo,size.minDimension*.58f),size.minDimension*.58f,halo)
         val count=rocket.parts.size.coerceAtLeast(1)
@@ -564,64 +613,115 @@ private fun DrawScope.drawRocketComponent(part:PartType,left:Float,top:Float,wid
 }
 
 @Composable
-private fun BuilderScreen(rocket:Rocket,unlockedTech:Set<String>,onAdd:(PartType)->Unit,onAddStage:()->Unit,onRemove:(Int)->Unit,onMove:(Int,Int)->Unit,onClear:()->Unit,onBack:()->Unit,onLaunch:()->Unit){
-    Shell("Vehicle Lab","Tap parts to add · stack them into a launcher",onBack){
-        Row(verticalAlignment=Alignment.Top,modifier=Modifier.fillMaxWidth()){
-            Surface(color=Panel,shape=RoundedCornerShape(20.dp),modifier=Modifier.weight(1f).height(420.dp)){
-                Box(Modifier.fillMaxSize(),contentAlignment=Alignment.BottomCenter){
-                    RocketStackPreview(rocket)
-                    Text(if(rocket.parts.isEmpty())"ADD A CORE" else "STACK PREVIEW",color=Muted,fontSize=11.sp,modifier=Modifier.padding(bottom=10.dp))
+private fun BuilderScreen(
+    rocket:Rocket,unlockedTech:Set<String>,sandboxMode:Boolean,
+    onAdd:(PartType)->Unit,onAddStage:()->Unit,onRemove:(Int)->Unit,
+    onMove:(Int,Int)->Unit,onClear:()->Unit,onBack:()->Unit,onLaunch:()->Unit
+){
+    var showStack by rememberSaveable{mutableStateOf(false)}
+    val effectiveUnlocked=if(sandboxMode)CareerDatabase.tech.map{it.id}.toSet() else unlockedTech
+    Box(Modifier.fillMaxSize().background(Bg)){
+        Column(Modifier.fillMaxSize()){
+            Row(
+                Modifier.fillMaxWidth().heightIn(min=48.dp).background(Color(0xFF0C1522)).padding(horizontal=10.dp,vertical=4.dp),
+                verticalAlignment=Alignment.CenterVertically
+            ){
+                Text("‹",fontSize=34.sp,color=Ink,modifier=Modifier.clickable{onBack()}.padding(end=8.dp))
+                Column(Modifier.weight(1f)){
+                    Text(if(sandboxMode)"SANDBOX BUILDER" else "VEHICLE ASSEMBLY",fontSize=15.sp,fontWeight=FontWeight.Black,lineHeight=18.sp)
+                    Text(if(sandboxMode)"All parts unlocked · free construction" else "Tap a part to attach it",fontSize=10.sp,color=Muted,lineHeight=13.sp)
+                }
+                Button(onClick=onLaunch,enabled=rocket.hasEngine&&rocket.hasCapsule,modifier=Modifier.heightIn(min=40.dp),shape=RoundedCornerShape(9.dp),contentPadding=PaddingValues(horizontal=12.dp,vertical=8.dp)){
+                    Text("LAUNCH ▶",fontSize=11.sp,fontWeight=FontWeight.Black)
                 }
             }
-            Spacer(Modifier.width(10.dp))
-            LazyColumn(Modifier.width(148.dp).height(420.dp),verticalArrangement=Arrangement.spacedBy(5.dp)){
-                items(PartType.entries.toList()){p->
-                    val unlocked=isPartUnlocked(p,unlockedTech)
-                    val tileModifier=if(unlocked)Modifier.fillMaxWidth().clickable{onAdd(p)} else Modifier.fillMaxWidth()
-                    Surface(color=if(unlocked)Panel2 else Color(0xFF0A0D15),shape=RoundedCornerShape(12.dp),modifier=tileModifier){
-                        Row(Modifier.padding(5.dp),verticalAlignment=Alignment.CenterVertically){
-                            RocketPartThumbnail(p)
-                            Spacer(Modifier.width(5.dp))
-                            Column(Modifier.weight(1f)){
-                                Text(p.title,fontWeight=FontWeight.Bold,fontSize=11.sp,lineHeight=13.sp,color=if(unlocked)Ink else Muted)
-                                Text(if(unlocked)"M %.1f t · F %.0f t".format(p.mass,p.fuel) else "LOCKED · "+(requiredTech(p)?: "").uppercase(),fontSize=9.sp,color=if(unlocked)Muted else Violet,lineHeight=11.sp)
-                                if(unlocked&&p.thrust>0)Text("%.0f kN · Isp %.0f s".format(p.thrust,p.ispSec),fontSize=9.sp,color=Orange,lineHeight=11.sp)
+            Box(Modifier.weight(1f).fillMaxWidth().background(Color(0xFF315C86))){
+                RocketStackPreview(rocket,Modifier.fillMaxSize())
+                Column(
+                    Modifier.align(Alignment.CenterStart).width(66.dp).fillMaxHeight()
+                        .background(Color(0xDD10263C)).padding(horizontal=4.dp,vertical=5.dp)
+                ){
+                    Text("PARTS",fontSize=9.sp,fontWeight=FontWeight.Black,color=Cyan,modifier=Modifier.align(Alignment.CenterHorizontally).padding(bottom=5.dp))
+                    LazyColumn(verticalArrangement=Arrangement.spacedBy(5.dp),modifier=Modifier.fillMaxSize()){
+                        items(PartType.entries.toList()){part->
+                            val available=isPartUnlocked(part,effectiveUnlocked)
+                            Surface(
+                                color=if(available)Color(0xDD244666) else Color(0xCC101B29),
+                                shape=RoundedCornerShape(9.dp),
+                                modifier=Modifier.fillMaxWidth().height(50.dp).clickable(enabled=available){onAdd(part)}
+                            ){
+                                Box(contentAlignment=Alignment.Center){
+                                    Column(horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.Center){
+                                        RocketPartThumbnail(part)
+                                        if(!available)Text("LOCK",fontSize=7.sp,color=Violet,fontWeight=FontWeight.Black)
+                                    }
+                                }
                             }
                         }
                     }
                 }
-            }
-        }
-        Spacer(Modifier.height(10.dp))
-        Row(horizontalArrangement=Arrangement.spacedBy(6.dp),modifier=Modifier.fillMaxWidth()){
-            Column(Modifier.weight(1f).align(Alignment.CenterVertically)){
-                Text("STACK · TOP TO BOTTOM",fontWeight=FontWeight.Black,fontSize=10.sp,color=Muted)
-                Text("${rocket.parts.size} parts · ${rocket.parts.count{it==PartType.DECOUPLER}+1} stages",fontSize=11.sp,color=Cyan)
-            }
-            OutlinedButton(onClick=onClear,contentPadding=PaddingValues(horizontal=9.dp,vertical=8.dp)){Text("RESET",fontSize=10.sp)}
-            OutlinedButton(onClick=onAddStage,contentPadding=PaddingValues(horizontal=9.dp,vertical=8.dp)){Text("+ STAGE",fontSize=10.sp)}
-            Button(onClick=onLaunch,enabled=rocket.hasEngine&&rocket.hasCapsule,contentPadding=PaddingValues(horizontal=12.dp,vertical=8.dp)){Text("LAUNCH",fontSize=10.sp)}
-        }
-        Spacer(Modifier.height(8.dp))
-        Text("STACK",color=Muted,fontSize=11.sp,fontWeight=FontWeight.Black)
-        LazyColumn(verticalArrangement=Arrangement.spacedBy(6.dp),modifier=Modifier.weight(1f)){
-            itemsIndexed(rocket.parts){visualIndex,p->
-                val originalIndex=visualIndex
-                Surface(color=Panel,shape=RoundedCornerShape(12.dp),modifier=Modifier.fillMaxWidth()){
-                    Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.padding(horizontal=8.dp,vertical=5.dp)){
-                        RocketPartThumbnail(p)
-                        Column(Modifier.weight(1f).padding(start=7.dp)){
-                            Text(p.title,fontWeight=FontWeight.Bold,fontSize=12.sp,lineHeight=14.sp)
-                            Text("M %.1f · F %.1f · T %.0f".format(p.mass,p.fuel,p.thrust),color=Muted,fontSize=10.sp,lineHeight=12.sp)
-                        }
-                        Column(horizontalAlignment=Alignment.CenterHorizontally){
-                            Text("↑",fontSize=18.sp,color=Cyan,modifier=Modifier.clickable{onMove(originalIndex,-1)}.padding(horizontal=5.dp))
-                            Text("↓",fontSize=18.sp,color=Cyan,modifier=Modifier.clickable{onMove(originalIndex,1)}.padding(horizontal=5.dp))
-                        }
-                        Text("×",fontSize=20.sp,color=Red,modifier=Modifier.clickable{onRemove(originalIndex)}.padding(horizontal=5.dp))
+                Surface(
+                    color=Color(0xC9081523),shape=RoundedCornerShape(topStart=10.dp,bottomStart=10.dp),
+                    modifier=Modifier.align(Alignment.CenterEnd).padding(end=7.dp)
+                ){
+                    Column(Modifier.padding(horizontal=9.dp,vertical=8.dp),horizontalAlignment=Alignment.End){
+                        Text("MASS",fontSize=8.sp,color=Muted,fontWeight=FontWeight.Black)
+                        Text("%.1f t".format(rocket.dryMass+rocket.fuel),fontSize=13.sp,fontWeight=FontWeight.Black)
+                        Spacer(Modifier.height(5.dp))
+                        Text("T / W",fontSize=8.sp,color=Muted,fontWeight=FontWeight.Black)
+                        Text("%.2f".format(analyzeVehicle(rocket).twr),fontSize=13.sp,fontWeight=FontWeight.Black,color=if(analyzeVehicle(rocket).twr>=1.2)Green else Orange)
+                        Spacer(Modifier.height(5.dp))
+                        Text("ΔV",fontSize=8.sp,color=Muted,fontWeight=FontWeight.Black)
+                        Text("%.1f".format(rocket.deltaV),fontSize=13.sp,fontWeight=FontWeight.Black,color=Cyan)
                     }
                 }
+                Text("TOP  ↑",modifier=Modifier.align(Alignment.TopCenter).padding(top=10.dp),fontSize=9.sp,color=Color(0xCCFFFFFF),fontWeight=FontWeight.Black)
             }
+            Row(
+                horizontalArrangement=Arrangement.spacedBy(7.dp),verticalAlignment=Alignment.CenterVertically,
+                modifier=Modifier.fillMaxWidth().background(Color(0xFF0C1522)).padding(horizontal=8.dp,vertical=7.dp)
+            ){
+                Text("${rocket.parts.size} PARTS",color=Muted,fontSize=10.sp,fontWeight=FontWeight.Black,modifier=Modifier.weight(1f))
+                OutlinedButton(onClick={showStack=true},contentPadding=PaddingValues(horizontal=9.dp,vertical=8.dp),shape=RoundedCornerShape(9.dp)){
+                    Text("STACK",fontWeight=FontWeight.Black,fontSize=10.sp)
+                }
+                OutlinedButton(onClick=onAddStage,contentPadding=PaddingValues(horizontal=9.dp,vertical=8.dp),shape=RoundedCornerShape(9.dp)){
+                    Text("+ STAGE",fontWeight=FontWeight.Black,fontSize=10.sp)
+                }
+                OutlinedButton(onClick=onClear,contentPadding=PaddingValues(horizontal=9.dp,vertical=8.dp),shape=RoundedCornerShape(9.dp)){
+                    Text("RESET",fontWeight=FontWeight.Black,fontSize=10.sp)
+                }
+            }
+        }
+        if(showStack){
+            AlertDialog(
+                onDismissRequest={showStack=false},
+                title={Text("Rocket stack · top to bottom",fontWeight=FontWeight.Black)},
+                text={
+                    if(rocket.parts.isEmpty())Text("Stack vuoto. Aggiungi componenti dalla barra laterale.")
+                    else LazyColumn(verticalArrangement=Arrangement.spacedBy(5.dp),modifier=Modifier.heightIn(max=390.dp)){
+                        itemsIndexed(rocket.parts){index,part->
+                            Row(
+                                Modifier.fillMaxWidth().background(Panel2,RoundedCornerShape(9.dp)).padding(horizontal=7.dp,vertical=5.dp),
+                                verticalAlignment=Alignment.CenterVertically
+                            ){
+                                RocketPartThumbnail(part)
+                                Column(Modifier.weight(1f).padding(start=7.dp)){
+                                    Text(part.title,fontSize=12.sp,fontWeight=FontWeight.Bold,lineHeight=14.sp)
+                                    Text("M %.1f t · F %.1f t".format(part.mass,part.fuel),fontSize=10.sp,color=Muted)
+                                }
+                                Column(horizontalAlignment=Alignment.CenterHorizontally){
+                                    Text("↑",fontSize=17.sp,color=Cyan,modifier=Modifier.clickable{onMove(index,-1)}.padding(horizontal=6.dp))
+                                    Text("↓",fontSize=17.sp,color=Cyan,modifier=Modifier.clickable{onMove(index,1)}.padding(horizontal=6.dp))
+                                }
+                                Text("×",fontSize=20.sp,color=Red,modifier=Modifier.clickable{onRemove(index)}.padding(horizontal=6.dp))
+                            }
+                        }
+                    }
+                },
+                confirmButton={TextButton(onClick={showStack=false}){Text("DONE")}},
+                containerColor=Panel
+            )
         }
     }
 }
@@ -751,297 +851,374 @@ private fun launchState(rocket:Rocket):SimState{
 }
 
 @Composable
-private fun FlightScreen(sim:SimState,onTick:(SimState)->Unit,onMap:()->Unit,onBack:()->Unit,onMission:(String)->Unit){
+private fun FlightScreen(
+    sim:SimState,earthTexture:ImageBitmap?,marsTexture:ImageBitmap?,
+    onTick:(SimState)->Unit,onMap:()->Unit,onBack:()->Unit,onMission:(String)->Unit
+){
     var paused by rememberSaveable{mutableStateOf(false)}
     var pitchOffset by rememberSaveable{mutableFloatStateOf(90f)}
     var timeWarp by rememberSaveable{mutableIntStateOf(1)}
+    var showAdvanced by rememberSaveable{mutableStateOf(false)}
+    var cameraZoom by rememberSaveable{mutableFloatStateOf(1f)}
+    var cameraPan by remember{mutableStateOf(Offset.Zero)}
     val latestSim by rememberUpdatedState(sim)
     val latestPitch by rememberUpdatedState(pitchOffset)
+
     LaunchedEffect(paused,timeWarp,sim.crashed,sim.landed,sim.docked){
         if(paused||sim.crashed||sim.landed||sim.docked)return@LaunchedEffect
         while(true){
             delay(40L)
-            val current=latestSim?:break
+            val current=latestSim
             if(current.crashed||current.landed||current.docked)break
             onTick(stepPhysics(current,0.15*timeWarp,latestPitch.toDouble()))
         }
     }
-    val altitude=sim.pos.mag()-EARTH_RADIUS_KM
+
+    val altitude=(sim.pos.mag()-EARTH_RADIUS_KM).coerceAtLeast(0.0)
     val speed=sim.vel.mag()
     val orbit=orbitalMetrics(sim.pos,sim.vel)
-    val activeParts=activeStageParts(sim.parts)
-    val activeThrust=activeParts.sumOf{it.thrust}
-    val twr=if(sim.mass>0)activeThrust/(sim.mass*G0)else 0.0
+    val active=activeStageParts(sim.parts)
+    val thrust=active.sumOf{it.thrust}
+    val twr=if(sim.mass>0)thrust/(sim.mass*G0)else 0.0
+    val rangeMeters=sim.targetPos?.let{(it-sim.pos).mag()*1000.0}
+    val relativeSpeed=sim.targetVel?.let{(it-sim.vel).mag()*1000.0}
     val mission=when{
         sim.docked->"DOCKED"
         sim.landed->"RECOVERY"
-        altitude>=120&&orbit.periapsisAltitudeKm>=120->"STABLE ORBIT"
+        altitude>=100&&orbit.periapsisAltitudeKm>=100->"ORBIT"
         altitude>=80->"SUBORBITAL"
-        altitude>30->"ASCENT"
+        altitude>25->"ASCENT"
         else->"LAUNCH"
     }
-    val rangeMeters=sim.targetPos?.let{(it-sim.pos).mag()*1000.0}
-    val relativeSpeed=if(sim.targetVel!=null)(sim.targetVel-sim.vel).mag()*1000.0 else null
-    Column(Modifier.fillMaxSize().background(Bg).padding(horizontal=12.dp,vertical=8.dp)){
-        Row(verticalAlignment=Alignment.CenterVertically){
-            Text("‹",fontSize=36.sp,modifier=Modifier.clickable{onBack()}.padding(horizontal=6.dp),color=Ink)
-            Column(Modifier.weight(1f).padding(start=4.dp)){
-                Text(if(sim.docking)"DOCKING RANGE" else "MISSION · $mission",fontWeight=FontWeight.Black,fontSize=16.sp,lineHeight=20.sp)
-                Text("STAGE ${sim.stage} · ${sim.guidance.name.replace('_',' ')}",color=Muted,fontSize=11.sp,lineHeight=14.sp)
-            }
-            IconButton(onClick=onMap,modifier=Modifier.size(44.dp)){Text("◎",fontSize=24.sp,color=Cyan)}
-        }
-        Spacer(Modifier.height(4.dp))
-        Row(horizontalArrangement=Arrangement.spacedBy(5.dp),modifier=Modifier.fillMaxWidth()){
-            Metric("ALT","%.0f km".format(altitude.coerceAtLeast(0.0)),Modifier.weight(1f))
-            Metric("VELOCITY",if(speed<1.0)"%.0f m/s".format(speed*1000.0) else "%.2f km/s".format(speed),Modifier.weight(1f))
-            Metric("APO",if(orbit.escape)"ESCAPE" else "%.0f km".format(orbit.apoapsisAltitudeKm),Modifier.weight(1f))
-            Metric("PERI",if(orbit.periapsisAltitudeKm<0)"IMPACT" else "%.0f km".format(orbit.periapsisAltitudeKm),Modifier.weight(1f))
-        }
-        Spacer(Modifier.height(5.dp))
-        Row(horizontalArrangement=Arrangement.spacedBy(5.dp),modifier=Modifier.fillMaxWidth()){
-            Metric("TWR","%.2f".format(twr),Modifier.weight(1f))
-            Metric("MAX Q","%.0f kPa".format(sim.maxDynamicPressureKpa),Modifier.weight(1f))
-            Metric("HEAT","%.0f%%".format((sim.heat*100).coerceIn(0.0,150.0)),Modifier.weight(1f))
-            Metric("FUEL","%.1f t".format(sim.fuel),Modifier.weight(1f))
-        }
-        Spacer(Modifier.height(6.dp))
-        Surface(color=Panel,shape=RoundedCornerShape(20.dp),modifier=Modifier.fillMaxWidth().weight(1f)){
-            Canvas(Modifier.fillMaxSize()){
-                val small=min(size.width,size.height)
-                val center=Offset(size.width*.5f,size.height*.49f)
-                val altitudeLocal=(sim.pos.mag()-EARTH_RADIUS_KM).coerceAtLeast(0.0)
-                val scale=(small/(max(35.0,altitudeLocal+35.0)*2.7)).toFloat().coerceIn(.10f,8f)
-                drawRect(Brush.verticalGradient(listOf(Color(0xFF050916),Color(0xFF0C1931),Color(0xFF05060B))),size=Size(size.width,size.height))
-                // Custom starfield with a subtle blue nebula band.
-                drawOval(Brush.radialGradient(listOf(Color(0x223E79D8),Color.Transparent),Offset(size.width*.72f,size.height*.22f),small*.72f),Offset(size.width*.06f,size.height*.02f),Size(size.width*.95f,size.height*.70f))
-                repeat(88){i->
-                    val sx=((i*83+17)%997)/997f*size.width
-                    val sy=((i*47+29)%991)/991f*size.height
-                    val radius=if(i%11==0)2f else if(i%3==0)1.3f else .75f
-                    drawCircle(if(i%9==0)Color(0xFF93E2FF) else Color.White,radius,Offset(sx,sy),alpha=if(i%5==0).82f else .33f)
+
+    Box(Modifier.fillMaxSize().background(Color(0xFF050914))){
+        Canvas(
+            Modifier.fillMaxSize().pointerInput(Unit){
+                detectTransformGestures{_,pan,zoom,_->
+                    cameraZoom=(cameraZoom*zoom).coerceIn(0.22f,3.2f)
+                    cameraPan=Offset(
+                        (cameraPan.x+pan.x).coerceIn(-size.width*.36f,size.width*.36f),
+                        (cameraPan.y+pan.y).coerceIn(-size.height*.32f,size.height*.32f)
+                    )
                 }
-                // Camera follows the spacecraft; altitude and the apparent Earth size change smoothly.
-                val radial=sim.pos.normalized()
-                val earthR=(small*.36f/(1.0+altitudeLocal/1800.0)).toFloat().coerceAtLeast(18f)
-                val altitudePixels=(ln(1.0+altitudeLocal/8.0)*26.0).toFloat().coerceAtMost(size.height*.54f)
-                val earthCenter=Offset(
-                    center.x-radial.x.toFloat()*(earthR+altitudePixels),
-                    center.y+radial.y.toFloat()*(earthR+altitudePixels)
+            }
+        ){
+            val small=min(size.width,size.height)
+            val center=Offset(size.width*.5f,size.height*.48f)
+            val altitudeLocal=(sim.pos.mag()-EARTH_RADIUS_KM).coerceAtLeast(0.0)
+            drawRect(Brush.verticalGradient(listOf(Color(0xFF050A17),Color(0xFF10233D),Color(0xFF040711))),size=Size(size.width,size.height))
+            drawOval(
+                Brush.radialGradient(listOf(Color(0x224A8DDB),Color.Transparent),Offset(size.width*.68f,size.height*.26f),small*.8f),
+                Offset(size.width*.08f,size.height*.03f),Size(size.width*.88f,size.height*.72f)
+            )
+            repeat(105){i->
+                val sx=((i*83+17)%997)/997f*size.width
+                val sy=((i*47+29)%991)/991f*size.height
+                val r=if(i%13==0)2f else if(i%3==0)1.2f else .7f
+                drawCircle(if(i%11==0)Color(0xFF93E2FF)else Color.White,r,Offset(sx,sy),alpha=if(i%5==0).78f else .30f)
+            }
+
+            // Camera distance adapts from a surface view to a high-orbit view with pinch gestures.
+            val radial=sim.pos.normalized()
+            val earthR=(small*.36f/(1.0+altitudeLocal/1800.0)*cameraZoom).toFloat().coerceIn(7f,small*.62f)
+            val altitudePixels=(ln(1.0+altitudeLocal/8.0)*25.0*cameraZoom).toFloat().coerceAtMost(size.height*.66f)
+            val earthCenter=Offset(
+                center.x+cameraPan.x-radial.x.toFloat()*(earthR+altitudePixels),
+                center.y+cameraPan.y+radial.y.toFloat()*(earthR+altitudePixels)
+            )
+            drawCircle(
+                Brush.radialGradient(listOf(Color(0x6654BFFF),Color(0x2254BFFF),Color.Transparent),earthCenter,earthR*1.55f),
+                earthR*1.55f,earthCenter
+            )
+            drawTexturedPlanet(earthTexture,earthCenter,earthR,listOf(Color(0xFF428BBF),Color(0xFF1E4B7A),Color(0xFF071326)))
+
+            // Cloud veil and limb glow lend depth without obscuring the surface map.
+            drawCircle(Color(0x663EC8FF),earthR*1.015f,earthCenter,style=Stroke(width=max(1f,earthR*.035f)))
+            drawCircle(
+                Brush.radialGradient(listOf(Color.Transparent,Color(0x220C1426)),Offset(earthCenter.x-earthR*.3f,earthCenter.y-earthR*.35f),earthR*1.2f),
+                earthR,earthCenter
+            )
+
+            val sceneScale=(small/(max(40.0,altitudeLocal+35.0)*2.7)*cameraZoom).toFloat().coerceIn(.0002f,9f)
+            if(sim.trail.size>1){
+                val path=Path()
+                sim.trail.forEachIndexed{idx,p->
+                    val q=Offset(center.x+cameraPan.x+((p.x-sim.pos.x)*sceneScale).toFloat(),center.y+cameraPan.y-((p.y-sim.pos.y)*sceneScale).toFloat())
+                    if(idx==0)path.moveTo(q.x,q.y)else path.lineTo(q.x,q.y)
+                }
+                drawPath(path,color=Color(0x7745D7FF),style=Stroke(width=5f))
+                drawPath(path,color=Cyan,style=Stroke(width=2f))
+            }
+            // Show the Moon as a real target only while the view is zoomed out enough to frame it.
+            if(cameraZoom<=.42f){
+                val moonAngle=2.0*PI*sim.time/(27.321661*86400.0)
+                val moonDirection=V2(cos(moonAngle),sin(moonAngle))
+                val moonScreen=Offset(center.x+cameraPan.x+moonDirection.x.toFloat()*small*.34f,center.y+cameraPan.y-moonDirection.y.toFloat()*small*.34f)
+                drawCircle(Color(0x336F819A),13f,moonScreen)
+                drawTexturedPlanet(null,moonScreen,7f,listOf(Color(0xFFE7E9EF),Color(0xFF929BA9),Color(0xFF3C4658)))
+            }
+
+            // Spacecraft remains central so the player can steer while panning the environment.
+            val rp=center
+            val fx=cos(sim.angle).toFloat()
+            val fy=-sin(sim.angle).toFloat()
+            val bx=-fx
+            val by=-fy
+            val sideX=-fy
+            val sideY=fx
+            if(sim.fuel>0.01&&sim.throttle>0.01&&!sim.crashed&&!sim.landed&&!sim.docked){
+                val flameLength=14f+sim.throttle.toFloat()*28f
+                val flame=Path().apply{
+                    moveTo(rp.x+bx*8f+sideX*3.5f,rp.y+by*8f+sideY*3.5f)
+                    lineTo(rp.x+bx*flameLength,rp.y+by*flameLength)
+                    lineTo(rp.x+bx*8f-sideX*3.5f,rp.y+by*8f-sideY*3.5f)
+                    close()
+                }
+                drawPath(flame,Brush.verticalGradient(listOf(Color(0xFFFFF5C9),Color(0xFFFFA13B),Color(0x55FF4B30)),startY=rp.y-30f,endY=rp.y+36f))
+                drawCircle(Color(0x44FF8A35),10f,Offset(rp.x+bx*10f,rp.y+by*10f))
+                repeat(7){i->
+                    val t=i/6f
+                    drawCircle(Color(0x44FFC078),1.8f*(1f-t),Offset(rp.x+bx*(12f+i*3.7f)+sin((sim.time+i)*2.4).toFloat()*2f,rp.y+by*(12f+i*3.7f)))
+                }
+            }
+            val body=Path().apply{
+                moveTo(rp.x+fx*14f,rp.y+fy*14f)
+                lineTo(rp.x-fx*8f+sideX*5.2f,rp.y-fy*8f+sideY*5.2f)
+                lineTo(rp.x-fx*6f,rp.y-fy*6f)
+                lineTo(rp.x-fx*8f-sideX*5.2f,rp.y-fy*8f-sideY*5.2f)
+                close()
+            }
+            drawPath(body,Brush.linearGradient(listOf(Color.White,Color(0xFF9BACBF),Color(0xFF404F68)),Offset(rp.x-8f,rp.y-8f),Offset(rp.x+8f,rp.y+8f)))
+            drawCircle(Color(0xFF45D7FF),2.2f,Offset(rp.x+fx*2.5f,rp.y+fy*2.5f))
+            drawCircle(Color.White,2f,rp)
+            if(sim.heat>.65){
+                drawRoundRect(Color(0x66FF5369),Offset(2f,2f),Size(size.width-4f,size.height-4f),CornerRadius(18f),style=Stroke(width=4f))
+            }
+            if(sim.docking&&sim.targetPos!=null){
+                val direction=(sim.targetPos-sim.pos).normalized()
+                val target=Offset(center.x+direction.x.toFloat()*74f,center.y-direction.y.toFloat()*74f)
+                drawLine(Color(0xAA45D7FF),center,target,1.5f)
+                drawCircle(Cyan,10f,target,style=Stroke(width=2f))
+                drawLine(Cyan,Offset(target.x-15f,target.y),Offset(target.x+15f,target.y),1.5f)
+                drawLine(Cyan,Offset(target.x,target.y-15f),Offset(target.x,target.y+15f),1.5f)
+            }
+        }
+
+        // Compact, translucent HUD—most of the screen stays dedicated to the world.
+        Column(Modifier.align(Alignment.TopCenter).fillMaxWidth().padding(horizontal=7.dp,vertical=6.dp)){
+            Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.fillMaxWidth().background(Color(0x99202C3E),RoundedCornerShape(14.dp)).padding(horizontal=7.dp,vertical=5.dp)){
+                Text("‹",fontSize=29.sp,color=Ink,modifier=Modifier.clickable{onBack()}.padding(horizontal=7.dp))
+                Column(Modifier.weight(1f)){
+                    Text(if(sim.docking)"DOCKING" else mission,fontSize=12.sp,fontWeight=FontWeight.Black,lineHeight=15.sp)
+                    Text("STAGE ${sim.stage} · T+${sim.time.roundToInt()}s",fontSize=9.sp,color=Muted,lineHeight=12.sp)
+                }
+                Column(horizontalAlignment=Alignment.End){
+                    Text("ALT  ${"%.0f".format(altitude)} km",fontSize=11.sp,fontWeight=FontWeight.Bold)
+                    Text("VEL  ${if(speed<1.0)"%.0f m/s".format(speed*1000.0) else "%.2f km/s".format(speed)}",fontSize=10.sp,color=Cyan,fontWeight=FontWeight.Bold)
+                }
+                Spacer(Modifier.width(8.dp))
+                TextButton(onClick=onMap,contentPadding=PaddingValues(horizontal=6.dp,vertical=4.dp)){
+                    Text("MAP",fontSize=11.sp,fontWeight=FontWeight.Black)
+                }
+            }
+            Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.padding(top=4.dp,start=4.dp)){
+                Text("APO  ${if(orbit.escape)"ESCAPE" else "%.0f km".format(orbit.apoapsisAltitudeKm)}",fontSize=10.sp,color=Ink,fontWeight=FontWeight.Bold)
+                Spacer(Modifier.width(11.dp))
+                Text("PERI  ${if(orbit.periapsisAltitudeKm<0)"IMPACT" else "%.0f km".format(orbit.periapsisAltitudeKm)}",fontSize=10.sp,color=Ink,fontWeight=FontWeight.Bold)
+                Spacer(Modifier.weight(1f))
+                Text("${(sim.throttle*100).roundToInt()}% THROTTLE",fontSize=10.sp,color=Cyan,fontWeight=FontWeight.Black)
+            }
+        }
+
+        Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal=8.dp,vertical=7.dp)){
+            if(sim.docking&&rangeMeters!=null&&relativeSpeed!=null){
+                Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.fillMaxWidth().background(Color(0xAA0A1523),RoundedCornerShape(12.dp)).padding(horizontal=9.dp,vertical=5.dp)){
+                    Column(Modifier.weight(1f)){
+                        Text("RANGE",fontSize=8.sp,color=Muted,fontWeight=FontWeight.Black)
+                        Text(if(rangeMeters>=1000)"%.2f km".format(rangeMeters/1000.0)else"%.1f m".format(rangeMeters),fontSize=13.sp,fontWeight=FontWeight.Black)
+                    }
+                    Column(Modifier.weight(1f)){
+                        Text("RELATIVE SPEED",fontSize=8.sp,color=Muted,fontWeight=FontWeight.Black)
+                        Text("%.2f m/s".format(relativeSpeed),fontSize=13.sp,fontWeight=FontWeight.Black,color=if(relativeSpeed<.5)Green else Orange)
+                    }
+                    SmallButton("APPROACH",{onTick(applyDockingApproach(sim))},Modifier.weight(1f),enabled=!sim.docked)
+                    SmallButton("MATCH",{onTick(matchDockingVelocity(sim))},Modifier.weight(1f),enabled=!sim.docked)
+                    SmallButton("DOCK",{val next=attemptDock(sim);onTick(next);if(next.docked)onMission("dock")},Modifier.weight(1f),enabled=!sim.docked&&rangeMeters<=5.0&&relativeSpeed<=.5)
+                }
+                Spacer(Modifier.height(4.dp))
+            }
+            Surface(color=Color(0xAA0A1422),shape=RoundedCornerShape(16.dp),modifier=Modifier.fillMaxWidth()){
+                Column(Modifier.padding(horizontal=8.dp,vertical=5.dp)){
+                    Row(verticalAlignment=Alignment.CenterVertically){
+                        Text("THR",fontSize=9.sp,color=Muted,fontWeight=FontWeight.Black)
+                        Slider(value=sim.throttle.toFloat(),onValueChange={onTick(sim.copy(throttle=it.toDouble()))},valueRange=0f..1f,modifier=Modifier.weight(1f).height(31.dp),colors=SliderDefaults.colors(thumbColor=Cyan,activeTrackColor=Cyan,inactiveTrackColor=Color(0x663C536D)))
+                        Text("${(sim.throttle*100).roundToInt()}%",fontSize=10.sp,color=Ink,fontWeight=FontWeight.Black)
+                    }
+                    Row(horizontalArrangement=Arrangement.spacedBy(5.dp),verticalAlignment=Alignment.CenterVertically,modifier=Modifier.fillMaxWidth()){
+                        SmallButton("◀",{
+                            pitchOffset=(pitchOffset-5f).coerceIn(0f,180f)
+                            onTick(sim.copy(guidance=Guidance.MANUAL))
+                        },Modifier.weight(.8f))
+                        SmallButton("STAGE",{onTick(separateStage(sim))},Modifier.weight(1.15f),enabled=sim.parts.contains(PartType.DECOUPLER))
+                        SmallButton("▶",{
+                            pitchOffset=(pitchOffset+5f).coerceIn(0f,180f)
+                            onTick(sim.copy(guidance=Guidance.MANUAL))
+                        },Modifier.weight(.8f))
+                        SmallButton(if(paused)"▶" else "Ⅱ",{paused=!paused},Modifier.weight(.8f))
+                        SmallButton(if(showAdvanced)"LESS" else "MORE",{showAdvanced=!showAdvanced},Modifier.weight(1f))
+                    }
+                    if(showAdvanced){
+                        Spacer(Modifier.height(3.dp))
+                        Row(horizontalArrangement=Arrangement.spacedBy(5.dp),modifier=Modifier.fillMaxWidth()){
+                            SmallButton("PROGRADE",{onTick(sim.copy(guidance=Guidance.PROGRADE))},Modifier.weight(1f))
+                            SmallButton("RETRO",{onTick(sim.copy(guidance=Guidance.RETROGRADE))},Modifier.weight(1f))
+                            SmallButton("WARP ×$timeWarp",{timeWarp=if(timeWarp==1)5 else if(timeWarp==5)20 else 1},Modifier.weight(1f))
+                            SmallButton(if(sim.parachuteDeployed)"CHUTE ✓" else "CHUTE",{
+                                if(PartType.PARACHUTE in activeStageParts(sim.parts)&&altitude in 0.0..15.0&&speed<.30)onTick(sim.copy(parachuteDeployed=true))
+                            },Modifier.weight(1f),enabled=PartType.PARACHUTE in activeStageParts(sim.parts)&&altitude in 0.0..15.0&&speed<.30&&!sim.parachuteDeployed)
+                            SmallButton("${cameraZoom.toInt()}×",{cameraZoom=1f;cameraPan=Offset.Zero},Modifier.weight(.8f))
+                        }
+                        Spacer(Modifier.height(3.dp))
+                        Text("TWR %.2f · MAX Q %.0f kPa · HEAT %.0f%%".format(twr,sim.maxDynamicPressureKpa,(sim.heat*100).coerceIn(0.0,150.0)),fontSize=9.sp,color=Muted,modifier=Modifier.padding(start=4.dp))
+                    }
+                }
+            }
+            if(sim.crashed||sim.landed||sim.docked){
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    when{
+                        sim.crashed->"VEHICLE LOST · CHECK STAGING / HEAT / RE-ENTRY"
+                        sim.landed->if(sim.maxAltitudeKm>=80)"SAFE RECOVERY · MISSION RECORDED" else "SOFT LANDING · FLIGHT RECORDED"
+                        else->"DOCKING COMPLETE · RELATIVE MOTION MATCHED"
+                    },
+                    modifier=Modifier.fillMaxWidth().background(Color(0xCC101923),RoundedCornerShape(9.dp)).padding(8.dp),
+                    fontSize=10.sp,fontWeight=FontWeight.Black,color=if(sim.crashed)Red else Green
                 )
-                drawCircle(Brush.radialGradient(listOf(Color(0x6654BFFF),Color(0x2254BFFF),Color.Transparent),earthCenter,earthR*1.55f),earthR*1.55f,earthCenter)
-                drawCircle(Brush.radialGradient(listOf(Color(0xFF459CD5),Color(0xFF1D568D),Color(0xFF071326)),Offset(earthCenter.x-earthR*.32f,earthCenter.y-earthR*.36f),earthR*1.65f),earthR,earthCenter)
-                val continentA=Path().apply{
-                    moveTo(earthCenter.x-earthR*.74f,earthCenter.y-earthR*.20f)
-                    lineTo(earthCenter.x-earthR*.48f,earthCenter.y-earthR*.43f)
-                    lineTo(earthCenter.x-earthR*.20f,earthCenter.y-earthR*.32f)
-                    lineTo(earthCenter.x-earthR*.09f,earthCenter.y-earthR*.09f)
-                    lineTo(earthCenter.x-earthR*.29f,earthCenter.y+earthR*.12f)
-                    lineTo(earthCenter.x-earthR*.39f,earthCenter.y+earthR*.43f)
-                    lineTo(earthCenter.x-earthR*.65f,earthCenter.y+earthR*.33f)
-                    close()
-                }
-                drawPath(continentA,Brush.linearGradient(listOf(Color(0xFF89C984),Color(0xFF2C6954)),Offset(earthCenter.x-earthR,earthCenter.y-earthR),Offset(earthCenter.x,earthCenter.y+earthR)))
-                val continentB=Path().apply{
-                    moveTo(earthCenter.x+earthR*.08f,earthCenter.y-earthR*.43f)
-                    lineTo(earthCenter.x+earthR*.48f,earthCenter.y-earthR*.30f)
-                    lineTo(earthCenter.x+earthR*.66f,earthCenter.y-earthR*.02f)
-                    lineTo(earthCenter.x+earthR*.42f,earthCenter.y+earthR*.18f)
-                    lineTo(earthCenter.x+earthR*.22f,earthCenter.y+earthR*.44f)
-                    lineTo(earthCenter.x+earthR*.07f,earthCenter.y+earthR*.13f)
-                    close()
-                }
-                drawPath(continentB,Brush.linearGradient(listOf(Color(0xFF8CC681),Color(0xFF3D8058)),Offset(earthCenter.x,earthCenter.y-earthR),Offset(earthCenter.x+earthR,earthCenter.y+earthR)))
-                repeat(4){i->
-                    val yy=earthCenter.y-earthR*.45f+i*earthR*.27f
-                    drawOval(Color(0x99D8F0FF),topLeft=Offset(earthCenter.x-earthR*.67f,yy),size=Size(earthR*1.25f,earthR*.065f),style=Stroke(width=max(1f,earthR*.03f)))
-                }
-                drawCircle(Color(0xBB59CBFF),earthR,earthCenter,style=Stroke(width=max(1.5f,earthR*.025f)))
-                // Flight trail in the camera frame.
-                if(sim.trail.size>1){
-                    val path=Path()
-                    sim.trail.forEachIndexed{idx,p->
-                        val q=Offset(center.x+((p.x-sim.pos.x)*scale).toFloat(),center.y-((p.y-sim.pos.y)*scale).toFloat())
-                        if(idx==0)path.moveTo(q.x,q.y)else path.lineTo(q.x,q.y)
-                    }
-                    drawPath(path,color=Color(0x7745D7FF),style=Stroke(width=6f))
-                    drawPath(path,color=Cyan,style=Stroke(width=2.4f))
-                }
-                // The target is projected to a readable reticle; range remains physically measured in the HUD.
-                if(sim.docking&&sim.targetPos!=null){
-                    val delta=sim.targetPos-sim.pos
-                    val u=delta.normalized()
-                    val targetScreen=Offset(center.x+u.x.toFloat()*78f,center.y-u.y.toFloat()*78f)
-                    drawLine(Color(0x8845D7FF),center,targetScreen,1.5f)
-                    drawCircle(Color(0x3345D7FF),17f,targetScreen)
-                    drawCircle(Cyan,12f,targetScreen,style=Stroke(width=2f))
-                    drawLine(Cyan,Offset(targetScreen.x-17f,targetScreen.y),Offset(targetScreen.x+17f,targetScreen.y),1.5f)
-                    drawLine(Cyan,Offset(targetScreen.x,targetScreen.y-17f),Offset(targetScreen.x,targetScreen.y+17f),1.5f)
-                    drawCircle(Color.White,3f,targetScreen)
-                }
-                // Engine plume, body and attitude marker.
-                val rp=center
-                val fx=cos(sim.angle).toFloat()
-                val fy=-sin(sim.angle).toFloat()
-                val bx=-fx
-                val by=-fy
-                val sideX=-fy
-                val sideY=fx
-                if(sim.fuel>0.01&&sim.throttle>0.01&&!sim.crashed&&!sim.landed&&!sim.docked){
-                    val flameLength=14f+sim.throttle.toFloat()*28f
-                    val flame=Path().apply{
-                        moveTo(rp.x+bx*8f+sideX*3.5f,rp.y+by*8f+sideY*3.5f)
-                        lineTo(rp.x+bx*flameLength,rp.y+by*flameLength)
-                        lineTo(rp.x+bx*8f-sideX*3.5f,rp.y+by*8f-sideY*3.5f)
-                        close()
-                    }
-                    drawPath(flame,Brush.verticalGradient(listOf(Color(0xFFFFF5C9),Color(0xFFFFA13B),Color(0x55FF4B30)),startY=rp.y-30f,endY=rp.y+36f))
-                    drawCircle(Color(0x44FF8A35),10f,Offset(rp.x+bx*10f,rp.y+by*10f))
-                    repeat(9){i->
-                        val t=i/8f
-                        drawCircle(Color(0x44FFC078),1.8f*(1f-t),Offset(rp.x+bx*(12f+i*3.7f)+sin((sim.time+i)*2.4).toFloat()*2f,rp.y+by*(12f+i*3.7f)))
-                    }
-                }
-                val body=Path().apply{
-                    moveTo(rp.x+fx*14f,rp.y+fy*14f)
-                    lineTo(rp.x-fx*8f+sideX*5.2f,rp.y-fy*8f+sideY*5.2f)
-                    lineTo(rp.x-fx*6f,rp.y-fy*6f)
-                    lineTo(rp.x-fx*8f-sideX*5.2f,rp.y-fy*8f-sideY*5.2f)
-                    close()
-                }
-                drawPath(body,Brush.linearGradient(listOf(Color.White,Color(0xFF9BACBF),Color(0xFF404F68)),Offset(rp.x-8f,rp.y-8f),Offset(rp.x+8f,rp.y+8f)))
-                drawCircle(Color(0xFF45D7FF),2.2f,Offset(rp.x+fx*2.5f,rp.y+fy*2.5f))
-                drawCircle(Color.White,2f,rp)
-                if(sim.heat>.65){
-                    drawRoundRect(Color(0x66FF5369),Offset(2f,2f),Size(size.width-4f,size.height-4f),CornerRadius(18f),style=Stroke(width=4f))
-                }
             }
-        }
-        Spacer(Modifier.height(5.dp))
-        Row(verticalAlignment=Alignment.CenterVertically){
-            Text("THROTTLE",color=Muted,fontSize=11.sp,fontWeight=FontWeight.Black)
-            Spacer(Modifier.width(8.dp))
-            Text("${(sim.throttle*100).roundToInt()}%",color=Ink,fontSize=14.sp,fontWeight=FontWeight.Black)
-            Spacer(Modifier.weight(1f))
-            Text(if(sim.parachuteDeployed)"CHUTE DEPLOYED" else "T+ ${sim.time.roundToInt()} s",color=if(sim.parachuteDeployed)Green else Muted,fontSize=11.sp,fontWeight=FontWeight.Bold)
-        }
-        Slider(value=sim.throttle.toFloat(),onValueChange={onTick(sim.copy(throttle=it.toDouble()))},valueRange=0f..1f,modifier=Modifier.heightIn(min=36.dp),colors=SliderDefaults.colors(thumbColor=Cyan,activeTrackColor=Cyan))
-        Row(horizontalArrangement=Arrangement.spacedBy(6.dp),modifier=Modifier.fillMaxWidth()){
-            SmallButton(if(paused)"RESUME" else "PAUSE",{paused=!paused},Modifier.weight(1f))
-            SmallButton("STAGE",{onTick(separateStage(sim))},Modifier.weight(1f),enabled=sim.parts.contains(PartType.DECOUPLER))
-            SmallButton(if(sim.parachuteDeployed)"CHUTE ✓" else "CHUTE",{
-                val currentAlt=sim.pos.mag()-EARTH_RADIUS_KM
-                if(PartType.PARACHUTE in activeStageParts(sim.parts)&&currentAlt in 0.0..15.0&&sim.vel.mag()<0.30)onTick(sim.copy(parachuteDeployed=true))
-            },Modifier.weight(1f),enabled=PartType.PARACHUTE in activeStageParts(sim.parts)&&altitude in 0.0..15.0&&speed<0.30&&!sim.parachuteDeployed)
-            SmallButton("WARP ×$timeWarp",{timeWarp=if(timeWarp==1)5 else if(timeWarp==5)20 else 1},Modifier.weight(1f))
-        }
-        Row(horizontalArrangement=Arrangement.spacedBy(6.dp),modifier=Modifier.fillMaxWidth()){
-            SmallButton("P−",{pitchOffset=(pitchOffset-5f).coerceIn(0f,180f);onTick(sim.copy(guidance=Guidance.MANUAL))},Modifier.weight(1f))
-            SmallButton("MAN",{onTick(sim.copy(guidance=Guidance.MANUAL))},Modifier.weight(1f))
-            SmallButton("P+",{pitchOffset=(pitchOffset+5f).coerceIn(0f,180f);onTick(sim.copy(guidance=Guidance.MANUAL))},Modifier.weight(1f))
-            SmallButton("PRO",{onTick(sim.copy(guidance=Guidance.PROGRADE))},Modifier.weight(1f))
-            SmallButton("RET",{onTick(sim.copy(guidance=Guidance.RETROGRADE))},Modifier.weight(1f))
-        }
-        if(sim.docking&&rangeMeters!=null&&relativeSpeed!=null){
-            Surface(color=Panel2,shape=RoundedCornerShape(14.dp),modifier=Modifier.fillMaxWidth().padding(top=4.dp)){
-                Column(Modifier.padding(horizontal=10.dp,vertical=7.dp)){
-                    Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.fillMaxWidth()){
-                        Column(Modifier.weight(1f)){
-                            Text("TARGET RANGE",fontSize=10.sp,color=Muted,fontWeight=FontWeight.Bold)
-                            Text(if(rangeMeters>=1000)"%.2f km".format(rangeMeters/1000.0) else "%.1f m".format(rangeMeters),fontSize=15.sp,fontWeight=FontWeight.Black)
-                        }
-                        Column(Modifier.weight(1f)){
-                            Text("RELATIVE SPEED",fontSize=10.sp,color=Muted,fontWeight=FontWeight.Bold)
-                            Text("%.2f m/s".format(relativeSpeed),fontSize=15.sp,fontWeight=FontWeight.Black,color=if(relativeSpeed<0.5)Green else Orange)
-                        }
-                    }
-                    Spacer(Modifier.height(5.dp))
-                    Row(horizontalArrangement=Arrangement.spacedBy(6.dp),modifier=Modifier.fillMaxWidth()){
-                        SmallButton("APPROACH", {onTick(applyDockingApproach(sim))},Modifier.weight(1f),enabled=!sim.docked)
-                        SmallButton("MATCH V", {onTick(matchDockingVelocity(sim))},Modifier.weight(1f),enabled=!sim.docked)
-                        SmallButton("DOCK", {val docked=attemptDock(sim);onTick(docked);if(docked.docked)onMission("dock")},Modifier.weight(1f),enabled=!sim.docked&&rangeMeters<=5.0&&relativeSpeed<=0.5)
-                    }
-                }
-            }
-        }
-        if(sim.crashed){
-            Surface(color=Color(0xEE341321),shape=RoundedCornerShape(14.dp),modifier=Modifier.fillMaxWidth().padding(top=4.dp)){Text("VEHICLE LOST · REVIEW TWR, Q AND RE-ENTRY",color=Red,fontWeight=FontWeight.Black,fontSize=12.sp,modifier=Modifier.padding(10.dp))}
-        }else if(sim.landed){
-            Surface(color=Color(0xEE0D2A1F),shape=RoundedCornerShape(14.dp),modifier=Modifier.fillMaxWidth().padding(top=4.dp)){Text(if(sim.maxAltitudeKm>=80)"SAFE RECOVERY · CLAIM FIRST LIGHT" else "SAFE LANDING · FLIGHT RECORDED",color=Green,fontWeight=FontWeight.Black,fontSize=12.sp,modifier=Modifier.padding(10.dp))}
-        }else if(sim.docked){
-            Surface(color=Color(0xEE0D2A1F),shape=RoundedCornerShape(14.dp),modifier=Modifier.fillMaxWidth().padding(top=4.dp)){Text("DOCKING SUCCESSFUL · RELATIVE MOTION MATCHED",color=Green,fontWeight=FontWeight.Black,fontSize=12.sp,modifier=Modifier.padding(10.dp))}
-        }else if(orbit.periapsisAltitudeKm<0&&altitude>80){
-            Text("WARNING · IMPACT TRAJECTORY — RAISE PERIAPSIS",fontSize=11.sp,color=Red,fontWeight=FontWeight.Bold)
         }
     }
 }
 
 @Composable
 private fun SmallButton(text:String,onClick:()->Unit,modifier:Modifier=Modifier,enabled:Boolean=true){
-    Button(onClick=onClick,enabled=enabled,modifier=modifier.heightIn(min=44.dp),shape=RoundedCornerShape(11.dp),contentPadding=PaddingValues(horizontal=5.dp,vertical=7.dp),colors=ButtonDefaults.buttonColors(containerColor=Panel2,disabledContainerColor=Color(0xFF10131D))){Text(text,fontSize=10.sp,lineHeight=12.sp,fontWeight=FontWeight.Black)}
+    Button(
+        onClick=onClick,enabled=enabled,modifier=modifier.heightIn(min=40.dp),
+        shape=RoundedCornerShape(10.dp),contentPadding=PaddingValues(horizontal=4.dp,vertical=6.dp),
+        colors=ButtonDefaults.buttonColors(
+            containerColor=Color(0xAA142236),
+            contentColor=Color(0xFFF4F7FF),
+            disabledContainerColor=Color(0x55101A28),
+            disabledContentColor=Color(0xFF7F8CA0)
+        )
+    ){Text(text,fontSize=10.sp,lineHeight=12.sp,fontWeight=FontWeight.Black)}
 }
 
 @Composable
-private fun MapScreen(sim:SimState,onBack:()->Unit){
-    Shell("Navigation Map","Earth-centred trajectories · logarithmic system map",onBack){
-        Surface(color=Panel,shape=RoundedCornerShape(22.dp),modifier=Modifier.fillMaxWidth().weight(1f)){
-            Canvas(Modifier.fillMaxSize().padding(10.dp)){
-                val c=Offset(size.width/2,size.height/2)
-                val mapR=min(size.width,size.height)*.44f
-                drawRect(Brush.verticalGradient(listOf(Color(0xFF060A17),Color(0xFF0A1427))),size=Size(size.width,size.height))
-                repeat(60){i->drawCircle(Color.White,if(i%7==0)1.5f else .7f,Offset(((i*71)%997)/997f*size.width,((i*37)%991)/991f*size.height),alpha=.45f)}
-                fun plotRadius(radiusKm:Double):Float{
-                    val earthR=EARTH_RADIUS_KM
-                    return if(radiusKm<=earthR*4.0)(15.0+(radiusKm-earthR).coerceAtLeast(0.0)/earthR*12.0).toFloat()
-                    else (27.0+ln(radiusKm/(earthR*4.0))*25.0).toFloat().coerceAtMost(mapR)
-                }
-                listOf(1.03,1.10,1.20,1.5,2.0,3.0).forEach{factor->
-                    drawCircle(Color(0x332F4B71),plotRadius(EARTH_RADIUS_KM*factor),c,style=Stroke(width=1f))
-                }
-                val earthRadius=15f
-                drawCircle(Brush.radialGradient(listOf(Color(0xFF56B6E9),Color(0xFF18528A),Color(0xFF081529)),Offset(c.x-4f,c.y-5f),earthRadius*1.8f),earthRadius,c)
-                drawCircle(Color(0x994BC3FF),earthRadius,c,style=Stroke(width=1.5f))
-                val moonAngle=2.0*PI*sim.time/(27.321661*86400.0)
-                val moon=V2(cos(moonAngle)*MOON_ORBIT_KM,sin(moonAngle)*MOON_ORBIT_KM)
-                val moonR=plotRadius(MOON_ORBIT_KM)
-                val moonSpot=Offset(c.x+cos(moonAngle).toFloat()*moonR,c.y-sin(moonAngle).toFloat()*moonR)
-                drawCircle(Color(0x339EA8BD),10f,moonSpot)
-                drawCircle(Brush.radialGradient(listOf(Color(0xFFE6E8EE),Color(0xFF858C9D),Color(0xFF3D4555)),Offset(moonSpot.x-2f,moonSpot.y-2f),12f),6f,moonSpot)
-                val marsR=plotRadius(227_940_000.0)
-                drawCircle(Color(0x558A4A3C),8f,Offset(c.x+marsR,c.y),style=Stroke(width=2f))
-                // Actual path points, compressed logarithmically so LEO remains visible beside lunar distance.
-                if(sim.trail.size>1){
-                    val path=Path()
-                    sim.trail.takeLast(500).forEachIndexed{idx,p->
-                        val radius=p.mag().coerceAtLeast(1.0)
-                        val angle=atan2(p.y,p.x)
-                        val rp=plotRadius(radius)
-                        val q=Offset(c.x+cos(angle).toFloat()*rp,c.y-sin(angle).toFloat()*rp)
-                        if(idx==0)path.moveTo(q.x,q.y)else path.lineTo(q.x,q.y)
-                    }
-                    drawPath(path,color=Color(0x5545D7FF),style=Stroke(width=5f))
-                    drawPath(path,color=Cyan,style=Stroke(width=2f))
-                }
-                val currentAngle=atan2(sim.pos.y,sim.pos.x)
-                val currentR=plotRadius(sim.pos.mag())
-                drawCircle(Color.White,3.5f,Offset(c.x+cos(currentAngle).toFloat()*currentR,c.y-sin(currentAngle).toFloat()*currentR))
-                if(sim.targetPos!=null&&sim.docking){
-                    val targetAngle=atan2(sim.targetPos.y,sim.targetPos.x)
-                    val targetR=plotRadius(sim.targetPos.mag())
-                    drawCircle(Cyan,5f,Offset(c.x+cos(targetAngle).toFloat()*targetR,c.y-sin(targetAngle).toFloat()*targetR),style=Stroke(width=2f))
+private fun MapScreen(sim:SimState,earthTexture:ImageBitmap?,marsTexture:ImageBitmap?,onBack:()->Unit){
+    var cameraZoom by rememberSaveable{mutableFloatStateOf(.62f)}
+    var cameraPan by remember{mutableStateOf(Offset.Zero)}
+    Box(Modifier.fillMaxSize().background(Color(0xFF040713))){
+        Canvas(
+            Modifier.fillMaxSize().pointerInput(Unit){
+                detectTransformGestures{_,pan,zoom,_->
+                    cameraZoom=(cameraZoom*zoom).coerceIn(.12f,4.0f)
+                    cameraPan=Offset(
+                        (cameraPan.x+pan.x).coerceIn(-size.width*.65f,size.width*.65f),
+                        (cameraPan.y+pan.y).coerceIn(-size.height*.60f,size.height*.60f)
+                    )
                 }
             }
+        ){
+            val small=min(size.width,size.height)
+            val center=Offset(size.width*.5f+cameraPan.x,size.height*.52f+cameraPan.y)
+            val mapLimit=small*.44f
+            drawRect(Brush.verticalGradient(listOf(Color(0xFF050A18),Color(0xFF0B1B31),Color(0xFF040711))),size=Size(size.width,size.height))
+            drawOval(Brush.radialGradient(listOf(Color(0x1A536EB0),Color.Transparent),Offset(size.width*.69f,size.height*.24f),small*.75f),Offset(size.width*.1f,size.height*.01f),Size(size.width*.85f,size.height*.75f))
+            repeat(130){i->
+                val sx=((i*71+11)%997)/997f*size.width
+                val sy=((i*37+23)%991)/991f*size.height
+                drawCircle(if(i%13==0)Color(0xFFB5E9FF) else Color.White,if(i%7==0)1.5f else .65f,Offset(sx,sy),alpha=if(i%5==0).72f else .28f)
+            }
+            fun baseRadius(radiusKm:Double):Float{
+                val er=EARTH_RADIUS_KM
+                return if(radiusKm<=er*4.0)
+                    (16.0+(radiusKm-er).coerceAtLeast(0.0)/er*12.0).toFloat()
+                else
+                    (28.0+ln(radiusKm/(er*4.0))*24.0).toFloat()
+            }
+            fun plotRadius(radiusKm:Double)=(baseRadius(radiusKm)*cameraZoom).coerceAtMost(mapLimit*1.6f)
+            // Reference orbits make the navigation scale readable while still fitting the inner system.
+            listOf(EARTH_RADIUS_KM+200.0,EARTH_RADIUS_KM+35786.0,MOON_ORBIT_KM).forEachIndexed{idx,r->
+                drawCircle(Color(if(idx==2)0x445A7BA5L else 0x332F4B71L),plotRadius(r),center,style=Stroke(width=1f))
+            }
+            val earthR=(15f*cameraZoom*cameraZoom).coerceIn(3f,small*.30f)
+            drawCircle(Brush.radialGradient(listOf(Color(0x6649BFFF),Color.Transparent),center,earthR*2.1f),earthR*2.1f,center)
+            drawTexturedPlanet(earthTexture,center,earthR,listOf(Color(0xFF448FC7),Color(0xFF1D4E80),Color(0xFF071326)))
+            val moonAngle=2.0*PI*sim.time/(27.321661*86400.0)
+            val moonR=plotRadius(MOON_ORBIT_KM)
+            val moonSpot=Offset(center.x+cos(moonAngle).toFloat()*moonR,center.y-sin(moonAngle).toFloat()*moonR)
+            drawCircle(Color(0x339EA8BD),max(4f,6f*cameraZoom),moonSpot)
+            drawTexturedPlanet(null,moonSpot,max(2f,4.5f*cameraZoom),listOf(Color(0xFFF0F0EC),Color(0xFF969EAC),Color(0xFF343D4B)))
+            val marsDistance=227_940_000.0
+            val marsAngle=0.8
+            val marsR=plotRadius(marsDistance)
+            val marsSpot=Offset(center.x+cos(marsAngle).toFloat()*marsR,center.y-sin(marsAngle).toFloat()*marsR)
+            drawCircle(Color(0x44D36B4D),max(4f,9f*cameraZoom),marsSpot)
+            drawTexturedPlanet(marsTexture,marsSpot,max(3f,7f*cameraZoom),listOf(Color(0xFFD58B61),Color(0xFF8C4637),Color(0xFF3B1E20)))
+
+            if(sim.trail.size>1){
+                val path=Path()
+                sim.trail.takeLast(600).forEachIndexed{idx,p->
+                    val radius=p.mag().coerceAtLeast(1.0)
+                    val angle=atan2(p.y,p.x)
+                    val rp=plotRadius(radius)
+                    val q=Offset(center.x+cos(angle).toFloat()*rp,center.y-sin(angle).toFloat()*rp)
+                    if(idx==0)path.moveTo(q.x,q.y)else path.lineTo(q.x,q.y)
+                }
+                drawPath(path,color=Color(0x9955CFFF),style=Stroke(width=5f))
+                drawPath(path,color=Cyan,style=Stroke(width=2f))
+            }
+            val currentAngle=atan2(sim.pos.y,sim.pos.x)
+            val currentR=plotRadius(sim.pos.mag())
+            val vehicle=Offset(center.x+cos(currentAngle).toFloat()*currentR,center.y-sin(currentAngle).toFloat()*currentR)
+            drawCircle(Color.White,4.2f,vehicle)
+            drawCircle(Cyan,10f,vehicle,style=Stroke(width=1.5f))
+            if(sim.targetPos!=null&&sim.docking){
+                val a=atan2(sim.targetPos.y,sim.targetPos.x)
+                val r=plotRadius(sim.targetPos.mag())
+                drawCircle(Color(0xFF45D7FF),5f,Offset(center.x+cos(a).toFloat()*r,center.y-sin(a).toFloat()*r),style=Stroke(width=2f))
+            }
         }
-        Spacer(Modifier.height(8.dp))
-        Surface(color=Panel,shape=RoundedCornerShape(18.dp)){
-            Column(Modifier.padding(14.dp)){
-                Text("NAVIGATION COMPUTER",fontWeight=FontWeight.Black,fontSize=12.sp,color=Muted)
-                Text("Earth · Moon · Mars",fontWeight=FontWeight.Bold,fontSize=18.sp,modifier=Modifier.padding(top=3.dp))
-                Text("Distances in the system view are compressed logarithmically; telemetry and orbit calculations use real kilometre scales.",color=Muted,fontSize=12.sp,lineHeight=17.sp,modifier=Modifier.padding(top=4.dp))
+        Column(Modifier.align(Alignment.TopCenter).fillMaxWidth().padding(8.dp)){
+            Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.fillMaxWidth().background(Color(0xAA071320),RoundedCornerShape(14.dp)).padding(horizontal=6.dp,vertical=4.dp)){
+                Text("‹",fontSize=30.sp,modifier=Modifier.clickable{onBack()}.padding(horizontal=8.dp),color=Ink)
+                Column(Modifier.weight(1f)){
+                    Text("SOLAR SYSTEM",fontWeight=FontWeight.Black,fontSize=14.sp)
+                    Text("Pinch to zoom · drag to explore",color=Muted,fontSize=10.sp)
+                }
+                TextButton(onClick={cameraZoom=.48f;cameraPan=Offset.Zero},contentPadding=PaddingValues(horizontal=6.dp)){Text("UNIVERSE",fontSize=9.sp,fontWeight=FontWeight.Black)}
+                TextButton(onClick={cameraZoom=3.2f;cameraPan=Offset.Zero},contentPadding=PaddingValues(horizontal=6.dp)){Text("EARTH",fontSize=9.sp,fontWeight=FontWeight.Black)}
+            }
+            Row(horizontalArrangement=Arrangement.spacedBy(6.dp),modifier=Modifier.padding(start=8.dp,top=6.dp)){
+                Text("EARTH",fontSize=9.sp,color=Color(0xFF8ED9FF),fontWeight=FontWeight.Black)
+                Text("·",fontSize=9.sp,color=Muted)
+                Text("MOON",fontSize=9.sp,color=Color(0xFFE2E5EC),fontWeight=FontWeight.Black)
+                Text("·",fontSize=9.sp,color=Muted)
+                Text("MARS",fontSize=9.sp,color=Color(0xFFFFA07B),fontWeight=FontWeight.Black)
+            }
+        }
+        Surface(color=Color(0xAA081321),shape=RoundedCornerShape(12.dp),modifier=Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(8.dp)){
+            Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.padding(horizontal=12.dp,vertical=8.dp)){
+                Column(Modifier.weight(1f)){
+                    Text(if(cameraZoom<.8f)"SYSTEM VIEW" else if(cameraZoom<2f)"PLANETARY VIEW" else "EARTH DETAIL",fontSize=10.sp,color=Cyan,fontWeight=FontWeight.Black)
+                    Text("Zoom ${"%.2f".format(cameraZoom)}× · Orbit values remain in real units",fontSize=10.sp,color=Muted)
+                }
+                SmallButton("CENTER",{cameraPan=Offset.Zero},Modifier.width(78.dp))
             }
         }
     }
 }
+
 private fun worldToScreen(p:V2,rocket:V2,center:Offset,scale:Float):Offset{
     return Offset(center.x+((p.x-rocket.x)*scale).toFloat(),center.y-((p.y-rocket.y)*scale).toFloat())
 }
