@@ -119,8 +119,12 @@ data class Rocket(val parts:List<PartType>){
     }
 }
 fun starterRocket():Rocket=Rocket(listOf(
+    // Top-to-bottom order. The lowest stage lights first; upper stages ignite after separation.
     PartType.NOSE,PartType.CAPSULE,PartType.HEATSHIELD,PartType.PARACHUTE,
-    PartType.TANK,PartType.TANK,PartType.ENGINE,PartType.FIN
+    PartType.TANK,PartType.TANK,PartType.VACUUM_ENGINE,PartType.DECOUPLER,
+    PartType.TANK,PartType.TANK,PartType.VACUUM_ENGINE,PartType.DECOUPLER,
+    PartType.TANK,PartType.TANK,PartType.VACUUM_ENGINE,PartType.DECOUPLER,
+    PartType.TANK,PartType.TANK,PartType.HEAVY_ENGINE,PartType.FIN
 ))
 
 data class SimState(
