@@ -508,18 +508,18 @@ private fun RocketStackPreview(
     modifier:Modifier=Modifier,
     onReorder:((Int,Int)->Unit)?=null
 ){
-    val reorderModifier=if(onReorder!=null) Modifier.pointerInput(rocket.parts,onReorder){
+    val density=androidx.compose.ui.platform.LocalDensity.current.density
+    val reorderModifier=if(onReorder!=null) Modifier.pointerInput(rocket.parts,onReorder,density){
         var from=-1
         var to=-1
         detectDragGestures(
             onDragStart={point->
                 val count=rocket.parts.size
                 if(count>0){
-                    val density=androidx.compose.ui.platform.LocalDensity.current.density
                     val scale=stackPreviewScale(size.height.toFloat(),count,density)
                     val partH=88f*density*scale
                     val bottomCenter=size.height-82f*density*scale-partH/2f
-                    val row=((bottomCenter-point.y)/(76f*scale)).roundToInt().coerceIn(0,count-1)
+                    val row=((bottomCenter-point.y)/(94f*density*scale)).roundToInt().coerceIn(0,count-1)
                     from=count-1-row
                     to=from
                 }
@@ -528,7 +528,6 @@ private fun RocketStackPreview(
                 change.consume()
                 val count=rocket.parts.size
                 if(count>0&&from>=0){
-                    val density=androidx.compose.ui.platform.LocalDensity.current.density
                     val scale=stackPreviewScale(size.height.toFloat(),count,density)
                     val partH=88f*density*scale
                     val bottomCenter=size.height-82f*density*scale-partH/2f
