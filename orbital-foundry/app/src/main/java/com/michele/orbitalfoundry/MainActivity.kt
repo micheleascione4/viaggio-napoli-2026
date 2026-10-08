@@ -15,7 +15,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.zIndex
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -26,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -114,10 +120,7 @@ data class Rocket(val parts:List<PartType>){
 }
 fun starterRocket():Rocket=Rocket(listOf(
     PartType.NOSE,PartType.CAPSULE,PartType.HEATSHIELD,PartType.PARACHUTE,
-    PartType.TANK,PartType.TANK,PartType.VACUUM_ENGINE,PartType.DECOUPLER,
-    PartType.TANK,PartType.TANK,PartType.VACUUM_ENGINE,PartType.DECOUPLER,
-    PartType.TANK,PartType.TANK,PartType.VACUUM_ENGINE,PartType.DECOUPLER,
-    PartType.TANK,PartType.TANK,PartType.ENGINE,PartType.ENGINE,PartType.ENGINE,PartType.ENGINE,PartType.FIN
+    PartType.TANK,PartType.TANK,PartType.ENGINE,PartType.FIN
 ))
 
 data class SimState(
@@ -152,7 +155,6 @@ class MainActivity:ComponentActivity(){
     override fun onCreate(savedInstanceState:Bundle?){
         super.onCreate(savedInstanceState)
         val preferences=getSharedPreferences("orbital_foundry", MODE_PRIVATE)
-        val showTutorial=!preferences.getBoolean("tutorial_seen",false)
         val savedParts=preferences.getString("rocket_parts",null)
         val restoredParts=savedParts?.split(",")?.mapNotNull{token->
             runCatching{PartType.valueOf(token)}.getOrNull()
@@ -170,7 +172,6 @@ class MainActivity:ComponentActivity(){
         setContent{
             Box(Modifier.fillMaxSize().background(Bg).windowInsetsPadding(WindowInsets.safeDrawing)){
                 OrbitalFoundryApp(
-                    showTutorialOnStart=showTutorial,
                     initialRocket=initialRocket,
                     initialMissions=initialMissions,
                     initialCareer=initialCareer,
@@ -234,7 +235,6 @@ private fun DrawScope.drawTexturedPlanet(
 
 @Composable
 fun OrbitalFoundryApp(
-    showTutorialOnStart:Boolean,
     initialRocket:Rocket,
     initialMissions:Set<String>,
     initialCareer:CareerState,
@@ -246,8 +246,8 @@ fun OrbitalFoundryApp(
     val context=LocalContext.current
     val earthTexture=remember{loadPlanetTexture(context,"earth.png")}
     val marsTexture=remember{loadPlanetTexture(context,"mars.jpg")}
-    MaterialTheme(colorScheme=darkColorScheme(background=Bg,surface=Panel,primary=Violet,onBackground=Ink,onSurface=Ink)){
-        var screen by rememberSaveable{mutableStateOf(if(showTutorialOnStart)Screen.TUTORIAL else Screen.HOME)}
+    MaterialTheme(colorScheme=darkColorScheme(background=Bg,surface=Panel,primary=Color(0xFF3479B5),secondary=Cyan,onBackground=Ink,onSurface=Ink)){
+        var screen by rememberSaveable{mutableStateOf(Screen.HOME)}
         var rocket by remember{mutableStateOf(initialRocket)}
         var sim by remember{mutableStateOf<SimState?>(null)}
         var missions by remember{mutableStateOf(initialMissions)}
@@ -267,6 +267,7 @@ fun OrbitalFoundryApp(
             )
             Screen.BUILD->BuilderScreen(rocket,career.unlocked,sandboxMode,
                 {p->rocket=addPartInUsefulPosition(rocket,p)},
+                {part,index->rocket=insertPartAt(rocket,part,index)},
                 {rocket=addUpperStage(rocket)},
                 {index->val l=rocket.parts.toMutableList();if(index in l.indices)l.removeAt(index);rocket=rocket.copy(parts=l)},
                 {index,delta->
@@ -332,6 +333,12 @@ private fun addPartInUsefulPosition(rocket:Rocket,part:PartType):Rocket{
     return rocket.copy(parts=list)
 }
 
+private fun insertPartAt(rocket:Rocket,part:PartType,index:Int):Rocket{
+    val parts=rocket.parts.toMutableList()
+    parts.add(index.coerceIn(0,parts.size),part)
+    return rocket.copy(parts=parts)
+}
+
 private fun addUpperStage(rocket:Rocket):Rocket{
     val list=rocket.parts.toMutableList()
     val firstTank=list.indexOfFirst{it==PartType.TANK}
@@ -363,74 +370,81 @@ private fun HomeScreen(
     onBuild:()->Unit,onLaunch:()->Unit,onMissions:()->Unit,onTutorial:()->Unit,
     onSandbox:()->Unit,onDocking:()->Unit
 ){
-    Column(
-        Modifier.fillMaxSize().background(Bg).verticalScroll(rememberScrollState())
-            .padding(horizontal=16.dp,vertical=10.dp)
-    ){
+    val page=Color(0xFFE8F0F7)
+    val card=Color(0xFFFAFCFE)
+    val dark=Color(0xFF1C3044)
+    val secondary=Color(0xFF63778B)
+    val blue=Color(0xFF3479B5)
+    Column(Modifier.fillMaxSize().background(page).verticalScroll(rememberScrollState()).padding(horizontal=15.dp,vertical=10.dp)){
         Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.fillMaxWidth()){
             Column(Modifier.weight(1f)){
-                Text("ORBITAL FOUNDRY",fontSize=24.sp,fontWeight=FontWeight.Black,lineHeight=28.sp,letterSpacing=(-.4).sp)
-                Text("BUILD · FLY · EXPLORE",color=Cyan,fontSize=10.sp,fontWeight=FontWeight.Bold,letterSpacing=1.4.sp)
+                Text("ORBITAL FOUNDRY",fontSize=23.sp,fontWeight=FontWeight.Black,lineHeight=27.sp,letterSpacing=(-.5).sp,color=dark)
+                Text("BUILD  ·  LAUNCH  ·  EXPLORE",color=blue,fontSize=10.sp,fontWeight=FontWeight.Bold,letterSpacing=1.2.sp)
             }
-            TextButton(onClick=onTutorial,contentPadding=PaddingValues(6.dp)){
-                Text("?",fontSize=24.sp,fontWeight=FontWeight.Black,color=Ink)
-            }
-        }
-        Spacer(Modifier.height(8.dp))
-        Box(
-            Modifier.fillMaxWidth().height(250.dp).background(Color(0xFF315A82),RoundedCornerShape(18.dp))
-        ){
-            RocketStackPreview(rocket,Modifier.fillMaxSize())
-            Surface(color=Color(0xCC071320),shape=RoundedCornerShape(topStart=16.dp,bottomEnd=12.dp),modifier=Modifier.align(Alignment.TopStart)){
-                Column(Modifier.padding(horizontal=12.dp,vertical=8.dp)){
-                    Text("CURRENT VEHICLE",fontSize=9.sp,color=Cyan,fontWeight=FontWeight.Black,letterSpacing=1.sp)
-                    Text(if(rocket.hasEngine&&rocket.hasCapsule)"FLIGHT READY" else "INCOMPLETE STACK",fontSize=15.sp,fontWeight=FontWeight.Black)
-                }
-            }
-            Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(Color(0xBB071320)).padding(horizontal=12.dp,vertical=8.dp)){
-                Row(horizontalArrangement=Arrangement.SpaceBetween,modifier=Modifier.fillMaxWidth()){
-                    Text("MASS  %.1f t".format(rocket.dryMass+rocket.fuel),fontSize=11.sp,fontWeight=FontWeight.Bold)
-                    Text("FUEL  %.0f t".format(rocket.fuel),fontSize=11.sp,fontWeight=FontWeight.Bold)
-                    Text("ΔV  %.1f km/s".format(rocket.deltaV),fontSize=11.sp,fontWeight=FontWeight.Bold,color=Cyan)
-                }
+            TextButton(onClick=onTutorial,contentPadding=PaddingValues(horizontal=10.dp,vertical=6.dp),colors=ButtonDefaults.textButtonColors(contentColor=dark)){
+                Text("GUIDE",fontSize=11.sp,fontWeight=FontWeight.Black)
             }
         }
         Spacer(Modifier.height(9.dp))
-        Button(
-            onClick=onBuild,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp),
-            shape=RoundedCornerShape(12.dp),contentPadding=PaddingValues(10.dp)
-        ){
-            Text("BUILD ROCKET",fontWeight=FontWeight.Black,letterSpacing=.5.sp)
+        Box(Modifier.fillMaxWidth().height(218.dp).background(Color(0xFF4C83B8),RoundedCornerShape(10.dp))){
+            RocketStackPreview(rocket,Modifier.fillMaxSize())
+            Surface(color=Color(0xE8EDF4FA),shape=RoundedCornerShape(bottomEnd=8.dp),modifier=Modifier.align(Alignment.TopStart)){
+                Column(Modifier.padding(horizontal=10.dp,vertical=7.dp)){
+                    Text("ACTIVE VEHICLE",fontSize=9.sp,color=blue,fontWeight=FontWeight.Black,letterSpacing=.9.sp)
+                    Text(if(rocket.hasEngine&&rocket.hasCapsule)"READY TO LAUNCH" else "INCOMPLETE ROCKET",fontSize=13.sp,fontWeight=FontWeight.Black,color=dark)
+                }
+            }
+            Row(horizontalArrangement=Arrangement.SpaceEvenly,verticalAlignment=Alignment.CenterVertically,modifier=Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(Color(0xEAF4F8FC)).padding(horizontal=7.dp,vertical=7.dp)){
+                Column(horizontalAlignment=Alignment.CenterHorizontally,modifier=Modifier.weight(1f)){
+                    Text("MASS",fontSize=9.sp,color=secondary,fontWeight=FontWeight.Bold)
+                    Text("%.1f t".format(rocket.dryMass+rocket.fuel),fontSize=12.sp,fontWeight=FontWeight.Black,color=dark)
+                }
+                Column(horizontalAlignment=Alignment.CenterHorizontally,modifier=Modifier.weight(1f)){
+                    Text("FUEL",fontSize=9.sp,color=secondary,fontWeight=FontWeight.Bold)
+                    Text("%.0f t".format(rocket.fuel),fontSize=12.sp,fontWeight=FontWeight.Black,color=dark)
+                }
+                Column(horizontalAlignment=Alignment.CenterHorizontally,modifier=Modifier.weight(1f)){
+                    Text("ΔV",fontSize=9.sp,color=secondary,fontWeight=FontWeight.Bold)
+                    Text("%.2f km/s".format(rocket.deltaV),fontSize=12.sp,fontWeight=FontWeight.Black,color=blue)
+                }
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        Button(onClick=onBuild,modifier=Modifier.fillMaxWidth().height(49.dp),shape=RoundedCornerShape(8.dp),contentPadding=PaddingValues(10.dp),colors=ButtonDefaults.buttonColors(containerColor=blue,contentColor=Color.White)){
+            Text("BUILD ROCKET",fontWeight=FontWeight.Black,letterSpacing=.7.sp)
         }
         Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()){
-            OutlinedButton(onClick=onSandbox,modifier=Modifier.weight(1f).heightIn(min=46.dp),shape=RoundedCornerShape(12.dp)){
+            OutlinedButton(onClick=onSandbox,modifier=Modifier.weight(1f).height(46.dp),shape=RoundedCornerShape(8.dp),colors=ButtonDefaults.outlinedButtonColors(contentColor=dark)){
                 Text("SANDBOX",fontWeight=FontWeight.Black,fontSize=12.sp)
             }
-            OutlinedButton(onClick=onLaunch,enabled=rocket.hasEngine&&rocket.hasCapsule,modifier=Modifier.weight(1f).heightIn(min=46.dp),shape=RoundedCornerShape(12.dp)){
+            OutlinedButton(onClick=onLaunch,enabled=rocket.hasEngine&&rocket.hasCapsule,modifier=Modifier.weight(1f).height(46.dp),shape=RoundedCornerShape(8.dp),colors=ButtonDefaults.outlinedButtonColors(contentColor=blue)){
                 Text("QUICK LAUNCH",fontWeight=FontWeight.Black,fontSize=12.sp)
             }
         }
-        Spacer(Modifier.height(7.dp))
-        Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.fillMaxWidth()){
-            Column(Modifier.weight(1f)){
-                Text("CAREER",fontSize=12.sp,color=Muted,fontWeight=FontWeight.Black,letterSpacing=1.1.sp)
-                Text("€${career.funds/1000}K   ·   ${career.science} SCI   ·   ${career.unlocked.size} TECH",fontSize=12.sp,fontWeight=FontWeight.Bold)
+        Spacer(Modifier.height(9.dp))
+        Surface(color=card,shape=RoundedCornerShape(10.dp),modifier=Modifier.fillMaxWidth()){
+            Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.padding(horizontal=11.dp,vertical=10.dp)){
+                Column(Modifier.weight(1f)){
+                    Text("CAREER",fontSize=10.sp,color=secondary,fontWeight=FontWeight.Black,letterSpacing=1.sp)
+                    Text("€${career.funds/1000}K   ·   ${career.science} SCI",fontSize=13.sp,fontWeight=FontWeight.Bold,color=dark)
+                    Text("${career.unlocked.size} technologies unlocked",fontSize=10.sp,color=secondary)
+                }
+                Button(onClick=onMissions,shape=RoundedCornerShape(7.dp),contentPadding=PaddingValues(horizontal=10.dp,vertical=8.dp),colors=ButtonDefaults.buttonColors(containerColor=Color(0xFFD6E6F4),contentColor=dark)){
+                    Text("TECH TREE  →",fontSize=10.sp,fontWeight=FontWeight.Black)
+                }
             }
-            TextButton(onClick=onMissions){Text("MISSIONS  →",fontWeight=FontWeight.Black,fontSize=11.sp)}
         }
+        Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()){
-            OutlinedButton(onClick=onDocking,enabled=rocket.hasDockingPort&&rocket.hasRcs,modifier=Modifier.weight(1f).heightIn(min=42.dp),shape=RoundedCornerShape(10.dp)){
+            OutlinedButton(onClick=onMissions,modifier=Modifier.weight(1f).height(42.dp),shape=RoundedCornerShape(8.dp),colors=ButtonDefaults.outlinedButtonColors(contentColor=dark)){
+                Text("MISSIONS  (${missions.size})",fontSize=10.sp,fontWeight=FontWeight.Bold)
+            }
+            OutlinedButton(onClick=onDocking,enabled=rocket.hasDockingPort&&rocket.hasRcs,modifier=Modifier.weight(1f).height(42.dp),shape=RoundedCornerShape(8.dp),colors=ButtonDefaults.outlinedButtonColors(contentColor=dark)){
                 Text("DOCKING RANGE",fontSize=10.sp,fontWeight=FontWeight.Bold)
             }
-            OutlinedButton(onClick=onMissions,modifier=Modifier.weight(1f).heightIn(min=42.dp),shape=RoundedCornerShape(10.dp)){
-                Text("TECH TREE",fontSize=10.sp,fontWeight=FontWeight.Bold)
-            }
         }
-        Spacer(Modifier.height(6.dp))
-        Text("${missions.size} FLIGHT MILESTONES RECORDED",fontSize=10.sp,color=Muted)
     }
 }
-
 @Composable
 private fun Metric(label:String,value:String,modifier:Modifier=Modifier){
     Surface(color=Panel2,shape=RoundedCornerShape(14.dp),modifier=modifier){
@@ -461,30 +475,91 @@ private fun RocketPartThumbnail(part:PartType){
 }
 
 @Composable
-private fun RocketStackPreview(rocket:Rocket,modifier:Modifier=Modifier){
-    Canvas(modifier.fillMaxSize()){
-        drawRect(Brush.verticalGradient(listOf(Color(0xFF3B6997),Color(0xFF294E76),Color(0xFF193A5E))),size=Size(size.width,size.height))
-        for(x in 0..(size.width/28f).toInt()) drawLine(Color(0x337DC3F0),Offset(x*28f,0f),Offset(x*28f,size.height),1f)
-        for(y in 0..(size.height/28f).toInt()) drawLine(Color(0x337DC3F0),Offset(0f,y*28f),Offset(size.width,y*28f),1f)
-        val halo=Offset(size.width*.5f,size.height*.56f)
-        drawCircle(Brush.radialGradient(listOf(Color(0x443E8BFF),Color(0x113E8BFF),Color.Transparent),halo,size.minDimension*.58f),size.minDimension*.58f,halo)
-        val count=rocket.parts.size.coerceAtLeast(1)
-        val partH=min(38f,(size.height-104f)/count).coerceIn(10f,38f)
-        val partGap=2f
-        val partW=size.width*.36f
+private fun stackPreviewScale(height:Float,count:Int):Float{
+    if(count<=0)return 1f
+    return min(1f,((height-88f).coerceAtLeast(100f)/(count*76f))).coerceIn(.15f,1f)
+}
+
+private fun stackInsertionIndex(y:Float,height:Float,count:Int):Int{
+    if(count<=0)return 0
+    val scale=stackPreviewScale(height,count)
+    val partH=72f*scale
+    val step=76f*scale
+    val bottomCenter=height-70f*scale-partH/2f
+    val topCenter=bottomCenter-(count-1)*step
+    if(y<topCenter-partH/2f)return 0
+    if(y>bottomCenter+partH/2f)return count
+    val rowFromTop=((y-topCenter)/step).roundToInt().coerceIn(0,count-1)
+    val center=topCenter+rowFromTop*step
+    return (rowFromTop+if(y>center)1 else 0).coerceIn(0,count)
+}
+
+@Composable
+private fun RocketStackPreview(
+    rocket:Rocket,
+    modifier:Modifier=Modifier,
+    onReorder:((Int,Int)->Unit)?=null
+){
+    val reorderModifier=if(onReorder!=null) Modifier.pointerInput(rocket.parts,onReorder){
+        var from=-1
+        var to=-1
+        detectDragGestures(
+            onDragStart={point->
+                val count=rocket.parts.size
+                if(count>0){
+                    val scale=stackPreviewScale(size.height.toFloat(),count)
+                    val partH=72f*scale
+                    val bottomCenter=size.height-70f*scale-partH/2f
+                    val row=((bottomCenter-point.y)/(76f*scale)).roundToInt().coerceIn(0,count-1)
+                    from=count-1-row
+                    to=from
+                }
+            },
+            onDrag={change,_->
+                change.consume()
+                val count=rocket.parts.size
+                if(count>0&&from>=0){
+                    val scale=stackPreviewScale(size.height.toFloat(),count)
+                    val partH=72f*scale
+                    val bottomCenter=size.height-70f*scale-partH/2f
+                    val row=((bottomCenter-change.position.y)/(76f*scale)).roundToInt().coerceIn(0,count-1)
+                    to=count-1-row
+                }
+            },
+            onDragEnd={
+                val source=from
+                val destination=to
+                from=-1
+                to=-1
+                if(source>=0&&destination>=0&&source!=destination)onReorder.invoke(source,destination-source)
+            },
+            onDragCancel={from=-1;to=-1}
+        )
+    }else Modifier
+    Canvas(modifier.fillMaxSize().then(reorderModifier)){
+        drawRect(Brush.verticalGradient(listOf(Color(0xFF5B91C7),Color(0xFF4C83B8),Color(0xFF3D70A0))),size=Size(size.width,size.height))
+        val grid=42f
+        for(x in 0..(size.width/grid).toInt())drawLine(Color(0x337CB7E7),Offset(x*grid,0f),Offset(x*grid,size.height),1f)
+        for(y in 0..(size.height/grid).toInt())drawLine(Color(0x337CB7E7),Offset(0f,y*grid),Offset(size.width,y*grid),1f)
+        drawLine(Color(0x2295C8F1),Offset(size.width*.5f,0f),Offset(size.width*.5f,size.height),1f)
+        val count=rocket.parts.size
+        val scale=stackPreviewScale(size.height,count)
+        val partH=72f*scale
+        val partGap=4f*scale
+        val partW=min(42f,size.width*.14f)*scale
         val left=(size.width-partW)*.5f
-        val total=count*(partH+partGap)
-        var y=size.height-62f-partH
+        var y=size.height-70f*scale-partH
         rocket.parts.asReversed().forEach{part->
             drawRocketComponent(part,left,y,partW,partH)
             y-=partH+partGap
         }
-        // Mobile launch clamp and illuminated platform.
-        drawRoundRect(Color(0xFF202D43),Offset(size.width*.25f,size.height-54f),Size(size.width*.5f,10f),CornerRadius(4f))
-        drawLine(Color(0xFF45D7FF),Offset(size.width*.18f,size.height-43f),Offset(size.width*.82f,size.height-43f),2f)
-        drawCircle(Color(0x6645D7FF),size.width*.32f,Offset(size.width*.5f,size.height-42f),style=Stroke(width=2f))
+        val platformY=size.height-54f*scale
+        drawRoundRect(Color(0xFF31445C),Offset(size.width*.27f,platformY),Size(size.width*.46f,8f*scale),CornerRadius(3f*scale))
+        drawLine(Color(0xFF98C8EA),Offset(size.width*.18f,platformY+9f*scale),Offset(size.width*.82f,platformY+9f*scale),1.5f*scale)
         if(rocket.parts.isEmpty()){
-            drawCircle(Color(0x8845D7FF),18f,Offset(size.width*.5f,size.height*.42f),style=Stroke(width=2f))
+            val c=Offset(size.width*.5f,size.height*.42f)
+            drawCircle(Color(0x99FFFFFF),18f,c,style=Stroke(width=2f))
+            drawLine(Color(0x66FFFFFF),Offset(c.x-26f,c.y),Offset(c.x+26f,c.y),1f)
         }
     }
 }
@@ -615,170 +690,189 @@ private fun DrawScope.drawRocketComponent(part:PartType,left:Float,top:Float,wid
 @Composable
 private fun BuilderScreen(
     rocket:Rocket,unlockedTech:Set<String>,sandboxMode:Boolean,
-    onAdd:(PartType)->Unit,onAddStage:()->Unit,onRemove:(Int)->Unit,
-    onMove:(Int,Int)->Unit,onClear:()->Unit,onBack:()->Unit,onLaunch:()->Unit
+    onAdd:(PartType)->Unit,onDrop:(PartType,Int)->Unit,onAddStage:()->Unit,
+    onRemove:(Int)->Unit,onMove:(Int,Int)->Unit,onClear:()->Unit,onBack:()->Unit,onLaunch:()->Unit
 ){
     var showStack by rememberSaveable{mutableStateOf(false)}
     val effectiveUnlocked=if(sandboxMode)CareerDatabase.tech.map{it.id}.toSet() else unlockedTech
-    Box(Modifier.fillMaxSize().background(Bg)){
+    var rootBounds by remember{mutableStateOf<Rect?>(null)}
+    var viewportBounds by remember{mutableStateOf<Rect?>(null)}
+    var draggingPart by remember{mutableStateOf<PartType?>(null)}
+    var dragPosition by remember{mutableStateOf<Offset?>(null)}
+    val sideMargin=with(androidx.compose.ui.platform.LocalDensity.current){78.dp.toPx()}
+    val rightMargin=with(androidx.compose.ui.platform.LocalDensity.current){78.dp.toPx()}
+    Box(Modifier.fillMaxSize().background(Color(0xFFE4ECF4)).onGloballyPositioned{rootBounds=it.boundsInWindow()}){
         Column(Modifier.fillMaxSize()){
-            Row(
-                Modifier.fillMaxWidth().heightIn(min=48.dp).background(Color(0xFF0C1522)).padding(horizontal=10.dp,vertical=4.dp),
-                verticalAlignment=Alignment.CenterVertically
-            ){
-                Text("‹",fontSize=34.sp,color=Ink,modifier=Modifier.clickable{onBack()}.padding(end=8.dp))
-                Column(Modifier.weight(1f)){
-                    Text(if(sandboxMode)"SANDBOX BUILDER" else "VEHICLE ASSEMBLY",fontSize=15.sp,fontWeight=FontWeight.Black,lineHeight=18.sp)
-                    Text(if(sandboxMode)"All parts unlocked · free construction" else "Tap a part to attach it",fontSize=10.sp,color=Muted,lineHeight=13.sp)
+            Row(Modifier.fillMaxWidth().heightIn(min=49.dp).background(Color(0xFF345F85)).padding(horizontal=9.dp,vertical=4.dp),verticalAlignment=Alignment.CenterVertically){
+                Surface(color=Color(0x334A83B5),shape=RoundedCornerShape(6.dp),modifier=Modifier.clickable{onBack()}){
+                    Text("‹",fontSize=30.sp,color=Color.White,modifier=Modifier.padding(horizontal=9.dp,vertical=1.dp))
                 }
-                Button(onClick=onLaunch,enabled=rocket.hasEngine&&rocket.hasCapsule,modifier=Modifier.heightIn(min=40.dp),shape=RoundedCornerShape(9.dp),contentPadding=PaddingValues(horizontal=12.dp,vertical=8.dp)){
-                    Text("LAUNCH ▶",fontSize=11.sp,fontWeight=FontWeight.Black)
+                Column(Modifier.weight(1f).padding(start=8.dp)){
+                    Text("ROCKET BUILDER",fontSize=14.sp,fontWeight=FontWeight.Black,lineHeight=17.sp,color=Color.White)
+                    Text(if(sandboxMode)"SANDBOX · ALL PARTS FREE" else "CAREER · BUILD WITH UNLOCKED PARTS",fontSize=9.sp,color=Color(0xFFD2E7F8),lineHeight=12.sp)
+                }
+                Button(onClick=onLaunch,enabled=rocket.hasEngine&&rocket.hasCapsule,modifier=Modifier.height(39.dp),shape=RoundedCornerShape(7.dp),contentPadding=PaddingValues(horizontal=11.dp,vertical=5.dp),colors=ButtonDefaults.buttonColors(containerColor=Color(0xFFE7F1F9),contentColor=Color(0xFF183650))){
+                    Text("LAUNCH  ▶",fontSize=10.sp,fontWeight=FontWeight.Black)
                 }
             }
-            Box(Modifier.weight(1f).fillMaxWidth().background(Color(0xFF315C86))){
-                RocketStackPreview(rocket,Modifier.fillMaxSize())
-                Column(
-                    Modifier.align(Alignment.CenterStart).width(66.dp).fillMaxHeight()
-                        .background(Color(0xDD10263C)).padding(horizontal=4.dp,vertical=5.dp)
-                ){
-                    Text("PARTS",fontSize=9.sp,fontWeight=FontWeight.Black,color=Cyan,modifier=Modifier.align(Alignment.CenterHorizontally).padding(bottom=5.dp))
-                    LazyColumn(verticalArrangement=Arrangement.spacedBy(5.dp),modifier=Modifier.fillMaxSize()){
-                        items(PartType.entries.toList()){part->
+            Box(Modifier.weight(1f).fillMaxWidth().background(Color(0xFF4D80B4)).onGloballyPositioned{viewportBounds=it.boundsInWindow()}){
+                RocketStackPreview(rocket,Modifier.fillMaxSize(),onReorder=onMove)
+                Column(Modifier.align(Alignment.CenterStart).width(78.dp).fillMaxHeight().background(Color(0xEAF0F5FA)).padding(horizontal=4.dp,vertical=5.dp)){
+                    Text("PARTS",fontSize=9.sp,fontWeight=FontWeight.Black,color=Color(0xFF356B9D),modifier=Modifier.align(Alignment.CenterHorizontally).padding(bottom=5.dp))
+                    LazyColumn(verticalArrangement=Arrangement.spacedBy(4.dp),modifier=Modifier.fillMaxSize()){
+                        items(PartType.entries.toList(),key={it.name}){part->
                             val available=isPartUnlocked(part,effectiveUnlocked)
+                            var itemCoordinates by remember(part){mutableStateOf<LayoutCoordinates?>(null)}
+                            val dragModifier=if(available)Modifier.pointerInput(part,rocket.parts.size){
+                                detectDragGestures(
+                                    onDragStart={start->
+                                        val origin=itemCoordinates?.localToWindow(Offset.Zero)?:Offset.Zero
+                                        draggingPart=part
+                                        dragPosition=origin+start
+                                    },
+                                    onDrag={change,delta->
+                                        change.consume()
+                                        dragPosition=dragPosition?.plus(delta)
+                                    },
+                                    onDragEnd={
+                                        val position=dragPosition
+                                        val bounds=viewportBounds
+                                        if(position!=null&&bounds!=null&&position.x>bounds.left+sideMargin&&position.x<bounds.right-rightMargin&&position.y>=bounds.top&&position.y<=bounds.bottom){
+                                            val localY=(position.y-bounds.top).coerceIn(0f,bounds.height)
+                                            onDrop(part,stackInsertionIndex(localY,bounds.height,rocket.parts.size))
+                                        }
+                                        draggingPart=null
+                                        dragPosition=null
+                                    },
+                                    onDragCancel={draggingPart=null;dragPosition=null}
+                                )
+                            }else Modifier
                             Surface(
-                                color=if(available)Color(0xDD244666) else Color(0xCC101B29),
-                                shape=RoundedCornerShape(9.dp),
-                                modifier=Modifier.fillMaxWidth().height(50.dp).clickable(enabled=available){onAdd(part)}
+                                color=if(available)Color(0xFFF9FCFE) else Color(0xFFD2DDE7),
+                                shape=RoundedCornerShape(7.dp),
+                                modifier=Modifier.fillMaxWidth().height(65.dp).onGloballyPositioned{itemCoordinates=it}.then(dragModifier)
+                                    .clickable(enabled=available){onAdd(part)}
+                                    .border(1.dp,if(available)Color(0xFFB8CDE0) else Color(0xFFC4CED7),RoundedCornerShape(7.dp))
                             ){
-                                Box(contentAlignment=Alignment.Center){
-                                    Column(horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.Center){
-                                        RocketPartThumbnail(part)
-                                        if(!available)Text("LOCK",fontSize=7.sp,color=Violet,fontWeight=FontWeight.Black)
-                                    }
+                                Column(horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.Center,modifier=Modifier.fillMaxWidth().padding(vertical=1.dp)){
+                                    RocketPartThumbnail(part)
+                                    Text(if(available)part.title else "LOCKED",fontSize=7.sp,lineHeight=8.sp,maxLines=2,textAlign=androidx.compose.ui.text.style.TextAlign.Center,color=if(available)Color(0xFF263F54) else Color(0xFF7F8994),fontWeight=FontWeight.Bold,modifier=Modifier.padding(horizontal=2.dp))
                                 }
                             }
                         }
                     }
                 }
-                Surface(
-                    color=Color(0xC9081523),shape=RoundedCornerShape(topStart=10.dp,bottomStart=10.dp),
-                    modifier=Modifier.align(Alignment.CenterEnd).padding(end=7.dp)
-                ){
-                    Column(Modifier.padding(horizontal=9.dp,vertical=8.dp),horizontalAlignment=Alignment.End){
-                        Text("MASS",fontSize=8.sp,color=Muted,fontWeight=FontWeight.Black)
-                        Text("%.1f t".format(rocket.dryMass+rocket.fuel),fontSize=13.sp,fontWeight=FontWeight.Black)
-                        Spacer(Modifier.height(5.dp))
-                        Text("T / W",fontSize=8.sp,color=Muted,fontWeight=FontWeight.Black)
-                        Text("%.2f".format(analyzeVehicle(rocket).twr),fontSize=13.sp,fontWeight=FontWeight.Black,color=if(analyzeVehicle(rocket).twr>=1.2)Green else Orange)
-                        Spacer(Modifier.height(5.dp))
-                        Text("ΔV",fontSize=8.sp,color=Muted,fontWeight=FontWeight.Black)
-                        Text("%.1f".format(rocket.deltaV),fontSize=13.sp,fontWeight=FontWeight.Black,color=Cyan)
+                Surface(color=Color(0xEAF0F5FA),shape=RoundedCornerShape(topStart=7.dp,bottomStart=7.dp),modifier=Modifier.align(Alignment.CenterEnd).padding(end=5.dp)){
+                    Column(Modifier.padding(horizontal=7.dp,vertical=8.dp),horizontalAlignment=Alignment.End){
+                        Text("MASS",fontSize=8.sp,color=Color(0xFF60758A),fontWeight=FontWeight.Black)
+                        Text("%.1f t".format(rocket.dryMass+rocket.fuel),fontSize=12.sp,fontWeight=FontWeight.Black,color=Color(0xFF1F354B))
+                        Spacer(Modifier.height(4.dp))
+                        Text("T / W",fontSize=8.sp,color=Color(0xFF60758A),fontWeight=FontWeight.Black)
+                        Text("%.2f".format(analyzeVehicle(rocket).twr),fontSize=12.sp,fontWeight=FontWeight.Black,color=if(analyzeVehicle(rocket).twr>=1.2)Color(0xFF217C57) else Color(0xFFB56B1C))
+                        Spacer(Modifier.height(4.dp))
+                        Text("ΔV",fontSize=8.sp,color=Color(0xFF60758A),fontWeight=FontWeight.Black)
+                        Text("%.1f".format(rocket.deltaV),fontSize=12.sp,fontWeight=FontWeight.Black,color=Color(0xFF246DA5))
                     }
                 }
-                Text("TOP  ↑",modifier=Modifier.align(Alignment.TopCenter).padding(top=10.dp),fontSize=9.sp,color=Color(0xCCFFFFFF),fontWeight=FontWeight.Black)
+                Text("TOP  ↑",modifier=Modifier.align(Alignment.TopCenter).padding(top=8.dp),fontSize=9.sp,color=Color(0xEFFFFFFF),fontWeight=FontWeight.Black)
+                if(rocket.parts.isNotEmpty()){
+                    Text("Drag parts here · drag the rocket to reorder",modifier=Modifier.align(Alignment.BottomCenter).padding(bottom=8.dp).background(Color(0x88273F58),RoundedCornerShape(5.dp)).padding(horizontal=7.dp,vertical=4.dp),fontSize=8.sp,color=Color.White)
+                }
             }
-            Row(
-                horizontalArrangement=Arrangement.spacedBy(7.dp),verticalAlignment=Alignment.CenterVertically,
-                modifier=Modifier.fillMaxWidth().background(Color(0xFF0C1522)).padding(horizontal=8.dp,vertical=7.dp)
-            ){
-                Text("${rocket.parts.size} PARTS",color=Muted,fontSize=10.sp,fontWeight=FontWeight.Black,modifier=Modifier.weight(1f))
-                OutlinedButton(onClick={showStack=true},contentPadding=PaddingValues(horizontal=9.dp,vertical=8.dp),shape=RoundedCornerShape(9.dp)){
-                    Text("STACK",fontWeight=FontWeight.Black,fontSize=10.sp)
-                }
-                OutlinedButton(onClick=onAddStage,contentPadding=PaddingValues(horizontal=9.dp,vertical=8.dp),shape=RoundedCornerShape(9.dp)){
-                    Text("+ STAGE",fontWeight=FontWeight.Black,fontSize=10.sp)
-                }
-                OutlinedButton(onClick=onClear,contentPadding=PaddingValues(horizontal=9.dp,vertical=8.dp),shape=RoundedCornerShape(9.dp)){
-                    Text("RESET",fontWeight=FontWeight.Black,fontSize=10.sp)
+            Row(horizontalArrangement=Arrangement.spacedBy(6.dp),verticalAlignment=Alignment.CenterVertically,modifier=Modifier.fillMaxWidth().background(Color(0xFFE4ECF4)).padding(horizontal=7.dp,vertical=5.dp)){
+                Text("${rocket.parts.size} PARTS",color=Color(0xFF526A80),fontSize=9.sp,fontWeight=FontWeight.Black,modifier=Modifier.weight(1f))
+                OutlinedButton(onClick={showStack=true},contentPadding=PaddingValues(horizontal=8.dp,vertical=7.dp),shape=RoundedCornerShape(7.dp),colors=ButtonDefaults.outlinedButtonColors(contentColor=Color(0xFF253F56))){Text("STACK",fontWeight=FontWeight.Black,fontSize=9.sp)}
+                OutlinedButton(onClick=onAddStage,contentPadding=PaddingValues(horizontal=8.dp,vertical=7.dp),shape=RoundedCornerShape(7.dp),colors=ButtonDefaults.outlinedButtonColors(contentColor=Color(0xFF253F56))){Text("+ STAGE",fontWeight=FontWeight.Black,fontSize=9.sp)}
+                OutlinedButton(onClick=onClear,contentPadding=PaddingValues(horizontal=8.dp,vertical=7.dp),shape=RoundedCornerShape(7.dp),colors=ButtonDefaults.outlinedButtonColors(contentColor=Color(0xFF253F56))){Text("RESET",fontWeight=FontWeight.Black,fontSize=9.sp)}
+            }
+        }
+        if(draggingPart!=null&&dragPosition!=null&&rootBounds!=null){
+            val point=dragPosition!!
+            val root=rootBounds!!
+            Box(Modifier.offset{IntOffset((point.x-root.left-38f).roundToInt(),(point.y-root.top-42f).roundToInt())}.zIndex(5f).width(76.dp).height(84.dp).background(Color(0xF7F9FCFE),RoundedCornerShape(9.dp)).border(2.dp,Color(0xFF3479B5),RoundedCornerShape(9.dp)),contentAlignment=Alignment.Center){
+                Column(horizontalAlignment=Alignment.CenterHorizontally){
+                    RocketPartThumbnail(draggingPart!!)
+                    Text(draggingPart!!.title,fontSize=8.sp,lineHeight=9.sp,maxLines=2,color=Color(0xFF1D344A),fontWeight=FontWeight.Bold,textAlign=androidx.compose.ui.text.style.TextAlign.Center)
                 }
             }
         }
         if(showStack){
             AlertDialog(
                 onDismissRequest={showStack=false},
-                title={Text("Rocket stack · top to bottom",fontWeight=FontWeight.Black)},
+                title={Text("ROCKET STACK · TOP TO BOTTOM",fontWeight=FontWeight.Black,color=Color(0xFF1D344A))},
                 text={
-                    if(rocket.parts.isEmpty())Text("Stack vuoto. Aggiungi componenti dalla barra laterale.")
+                    if(rocket.parts.isEmpty())Text("The stack is empty. Drag a component from the parts rail.")
                     else LazyColumn(verticalArrangement=Arrangement.spacedBy(5.dp),modifier=Modifier.heightIn(max=390.dp)){
                         itemsIndexed(rocket.parts){index,part->
-                            Row(
-                                Modifier.fillMaxWidth().background(Panel2,RoundedCornerShape(9.dp)).padding(horizontal=7.dp,vertical=5.dp),
-                                verticalAlignment=Alignment.CenterVertically
-                            ){
+                            Row(Modifier.fillMaxWidth().background(Color(0xFFE7EFF6),RoundedCornerShape(7.dp)).padding(horizontal=7.dp,vertical=5.dp),verticalAlignment=Alignment.CenterVertically){
                                 RocketPartThumbnail(part)
                                 Column(Modifier.weight(1f).padding(start=7.dp)){
-                                    Text(part.title,fontSize=12.sp,fontWeight=FontWeight.Bold,lineHeight=14.sp)
-                                    Text("M %.1f t · F %.1f t".format(part.mass,part.fuel),fontSize=10.sp,color=Muted)
+                                    Text(part.title,fontSize=12.sp,fontWeight=FontWeight.Bold,color=Color(0xFF1D344A),lineHeight=14.sp)
+                                    Text("M %.1f t · F %.1f t".format(part.mass,part.fuel),fontSize=10.sp,color=Color(0xFF61768A))
                                 }
                                 Column(horizontalAlignment=Alignment.CenterHorizontally){
-                                    Text("↑",fontSize=17.sp,color=Cyan,modifier=Modifier.clickable{onMove(index,-1)}.padding(horizontal=6.dp))
-                                    Text("↓",fontSize=17.sp,color=Cyan,modifier=Modifier.clickable{onMove(index,1)}.padding(horizontal=6.dp))
+                                    Text("↑",fontSize=17.sp,color=Color(0xFF3479B5),modifier=Modifier.clickable{onMove(index,-1)}.padding(horizontal=6.dp))
+                                    Text("↓",fontSize=17.sp,color=Color(0xFF3479B5),modifier=Modifier.clickable{onMove(index,1)}.padding(horizontal=6.dp))
                                 }
-                                Text("×",fontSize=20.sp,color=Red,modifier=Modifier.clickable{onRemove(index)}.padding(horizontal=6.dp))
+                                Text("×",fontSize=20.sp,color=Color(0xFFB34758),modifier=Modifier.clickable{onRemove(index)}.padding(horizontal=6.dp))
                             }
                         }
                     }
                 },
-                confirmButton={TextButton(onClick={showStack=false}){Text("DONE")}},
-                containerColor=Panel
+                confirmButton={TextButton(onClick={showStack=false},colors=ButtonDefaults.textButtonColors(contentColor=Color(0xFF3479B5))){Text("DONE")}},
+                containerColor=Color(0xFFF7FAFD)
             )
         }
     }
 }
-
 @Composable
 private fun TutorialScreen(onFinish:()->Unit,onSkip:()->Unit){
     var page by rememberSaveable{mutableIntStateOf(0)}
     val lessons=listOf(
-        Triple("01 / BUILD THE STACK","The editor stores the rocket top-to-bottom. The bottom stage is the section below a decoupler. Use ↑ and ↓ to reorder parts; add a tank and an engine for each extra stage.","Start with a capsule, heat shield, parachute, fuel tanks, engines and at least one decoupler."),
-        Triple("02 / CHECK THE ENGINEERING","Wet mass includes structure plus every tank. Thrust-to-weight ratio must be above 1.0 to lift off; around 1.3–1.8 is a useful starting point. ΔV is estimated stage by stage using engine Isp.","The model uses kilometres, seconds, tonnes and kilonewtons consistently. Atmospheric drag grows quickly at low altitude."),
-        Triple("03 / FLY TO ORBIT","Launch vertically, then use P− to tip toward the horizon. PRO points along velocity; RET points against it. Watch apoapsis and periapsis: a stable orbit needs both above the atmosphere.","Use throttle to manage acceleration and dynamic pressure. Press STAGE only when the active stage is ready to separate."),
-        Triple("04 / RE-ENTRY & RECOVERY","Use the heat shield on the capsule. The parachute is intended for low altitude and low speed; deploying it too early at orbital speed can destroy the vehicle.","Thermal load and maximum dynamic pressure are shown by the flight computer. Landing below the safe speed completes recovery."),
-        Triple("05 / DOCKING","Add both RCS Thrusters and a Docking Port, then open the Docking Range from the home screen. The training craft starts in a circular 200 km orbit.","Tap APPROACH once to add a small relative velocity. Tap MATCH V near the target to stop relative drift; press DOCK only within 5 m and below 0.5 m/s.")
+        Triple("01 / ASSEMBLA","Trascina i componenti dalla barra sinistra al razzo. Trascina i moduli già montati per cambiarne l'ordine.","Tocca un pezzo per aggiungerlo automaticamente."),
+        Triple("02 / LANCIA","Premi LAUNCH. Usa i controlli laterali per inclinare il razzo e STAGE per separare uno stadio.","In Sandbox tutti i pezzi sono disponibili senza limiti di tecnologia."),
+        Triple("03 / RAGGIUNGI L'ORBITA","Sali, controlla la mappa e inclina gradualmente verso l'orizzonte. Una buona orbita ha periapside e apoapside sopra l'atmosfera.","Non serve leggere tutto prima di giocare: torna qui dal menu quando ti serve.")
     )
     val lesson=lessons[page]
-    Column(Modifier.fillMaxSize().background(Bg).padding(horizontal=18.dp,vertical=14.dp)){
+    val dark=Color(0xFF20374D)
+    val blue=Color(0xFF3479B5)
+    Column(Modifier.fillMaxSize().background(Color(0xFFE8F0F7)).padding(horizontal=16.dp,vertical=12.dp)){
         Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.fillMaxWidth()){
             Column(Modifier.weight(1f)){
-                Text("FLIGHT SCHOOL",fontSize=12.sp,color=Cyan,fontWeight=FontWeight.Black,letterSpacing=1.5.sp)
-                Text("Learn to fly",fontSize=30.sp,fontWeight=FontWeight.Black)
+                Text("QUICK GUIDE",fontSize=11.sp,color=blue,fontWeight=FontWeight.Black,letterSpacing=1.3.sp)
+                Text("Impara giocando",fontSize=25.sp,fontWeight=FontWeight.Black,color=dark)
             }
-            Text("${page+1} / ${lessons.size}",fontSize=13.sp,color=Muted,fontWeight=FontWeight.Bold)
+            Text("${page+1} / ${lessons.size}",fontSize=12.sp,color=Color(0xFF60758A),fontWeight=FontWeight.Bold)
         }
-        Spacer(Modifier.height(14.dp))
-        Surface(color=Panel,shape=RoundedCornerShape(24.dp),modifier=Modifier.fillMaxWidth().weight(1f)){
-            Column(Modifier.padding(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
-                Surface(color=Panel2,shape=RoundedCornerShape(16.dp),modifier=Modifier.fillMaxWidth()){
-                    Box(Modifier.height(132.dp).fillMaxWidth(),contentAlignment=Alignment.Center){
-                        RocketStackPreview(Rocket(listOf(PartType.NOSE,PartType.CAPSULE,PartType.TANK,PartType.ENGINE,PartType.DECOUPLER,PartType.TANK,PartType.ENGINE,PartType.FIN)))
+        Spacer(Modifier.height(12.dp))
+        Surface(color=Color(0xFFFAFCFE),shape=RoundedCornerShape(12.dp),modifier=Modifier.fillMaxWidth().weight(1f)){
+            Column(Modifier.padding(15.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
+                Surface(color=Color(0xFFE4EDF6),shape=RoundedCornerShape(9.dp),modifier=Modifier.fillMaxWidth()){
+                    Box(Modifier.height(135.dp).fillMaxWidth(),contentAlignment=Alignment.Center){
+                        RocketStackPreview(Rocket(listOf(PartType.NOSE,PartType.CAPSULE,PartType.HEATSHIELD,PartType.TANK,PartType.TANK,PartType.ENGINE)))
                     }
                 }
-                Text(lesson.first,fontSize=12.sp,color=Violet,fontWeight=FontWeight.Black,letterSpacing=1.sp)
-                Text(lesson.second,fontSize=17.sp,lineHeight=24.sp,fontWeight=FontWeight.SemiBold)
-                Text(lesson.third,fontSize=14.sp,lineHeight=21.sp,color=Muted)
+                Text(lesson.first,fontSize=11.sp,color=blue,fontWeight=FontWeight.Black,letterSpacing=.8.sp)
+                Text(lesson.second,fontSize=17.sp,lineHeight=23.sp,fontWeight=FontWeight.SemiBold,color=dark)
+                Text(lesson.third,fontSize=13.sp,lineHeight=18.sp,color=Color(0xFF63778B))
                 Spacer(Modifier.weight(1f))
                 Row(horizontalArrangement=Arrangement.spacedBy(5.dp),modifier=Modifier.fillMaxWidth()){
                     lessons.indices.forEach{idx->
-                        Box(Modifier.weight(1f).height(4.dp).background(if(idx<=page)Cyan else Panel2,RoundedCornerShape(4.dp)))
+                        Box(Modifier.weight(1f).height(4.dp).background(if(idx<=page)blue else Color(0xFFD5E1EB),RoundedCornerShape(4.dp)))
                     }
                 }
             }
         }
-        Spacer(Modifier.height(12.dp))
-        Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()){
-            OutlinedButton(onClick=onSkip,modifier=Modifier.weight(1f).heightIn(min=48.dp),shape=RoundedCornerShape(14.dp)){
-                Text("SKIP",fontWeight=FontWeight.Bold)
-            }
-            if(page>0) OutlinedButton(onClick={page--},modifier=Modifier.weight(1f).heightIn(min=48.dp),shape=RoundedCornerShape(14.dp)){
-                Text("BACK",fontWeight=FontWeight.Bold)
-            }
-            Button(onClick={if(page==lessons.lastIndex)onFinish() else page++},modifier=Modifier.weight(1.4f).heightIn(min=48.dp),shape=RoundedCornerShape(14.dp)){
-                Text(if(page==lessons.lastIndex)"START FLIGHT" else "NEXT",fontWeight=FontWeight.Black)
+        Spacer(Modifier.height(10.dp))
+        Row(horizontalArrangement=Arrangement.spacedBy(7.dp),modifier=Modifier.fillMaxWidth()){
+            OutlinedButton(onClick=onSkip,modifier=Modifier.weight(1f).height(46.dp),shape=RoundedCornerShape(8.dp),colors=ButtonDefaults.outlinedButtonColors(contentColor=dark)){Text("SALTA",fontWeight=FontWeight.Bold)}
+            if(page>0) OutlinedButton(onClick={page--},modifier=Modifier.weight(1f).height(46.dp),shape=RoundedCornerShape(8.dp),colors=ButtonDefaults.outlinedButtonColors(contentColor=dark)){Text("INDIETRO",fontWeight=FontWeight.Bold,fontSize=10.sp)}
+            Button(onClick={if(page==lessons.lastIndex)onFinish() else page++},modifier=Modifier.weight(1.4f).height(46.dp),shape=RoundedCornerShape(8.dp),colors=ButtonDefaults.buttonColors(containerColor=blue,contentColor=Color.White)){
+                Text(if(page==lessons.lastIndex)"GIOCA" else "AVANTI",fontWeight=FontWeight.Black)
             }
         }
     }
 }
-
 @Composable
 private fun MissionScreen(missions:Set<String>,career:CareerState,onCareer:(CareerState)->Unit,onBack:()->Unit){
     Shell("Mission Control","Contracts · rewards · technology progression",onBack){

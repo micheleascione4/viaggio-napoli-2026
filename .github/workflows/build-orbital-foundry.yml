@@ -2,7 +2,7 @@ name: Build Orbital Foundry APK
 
 on:
   push:
-    branches: [ main, orbital-foundry-v1, orbital-foundry-graphics-stage3, orbital-foundry-sfs-interface-v04 ]
+    branches: [ main, orbital-foundry-v1, orbital-foundry-graphics-stage3, orbital-foundry-sfs-interface-v04, orbital-foundry-sfs-rebuild-v0-5 ]
   workflow_dispatch:
 
 concurrency:
