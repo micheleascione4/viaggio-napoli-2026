@@ -21,6 +21,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -165,8 +166,8 @@ private fun HomeScreen(rocket:Rocket,missions:Set<String>,career:CareerState,onB
         Surface(color=Panel,shape=RoundedCornerShape(20.dp),modifier=Modifier.fillMaxWidth()){
             Column(Modifier.padding(16.dp)){
                 Text("DESIGN GOAL",fontSize=12.sp,color=Muted,fontWeight=FontWeight.Black)
-                Text("A serious mobile flight loop",fontSize=18.sp,fontWeight=FontWeight.Bold,modifier=Modifier.padding(top=4.dp))
-                Text("Readable editor, telemetry-first cockpit, trajectory trail, staging and orbital guidance without desktop-style controls.",color=Muted,fontSize=13.sp,modifier=Modifier.padding(top=4.dp))
+                Text("FLIGHT HARDWARE · VISUAL PREVIEW",fontSize=18.sp,fontWeight=FontWeight.Bold,modifier=Modifier.padding(top=4.dp))
+                Text("Metallic parts, panel lines, mission telemetry, atmospheric glow and engine exhaust. Next: procedural textures, real staging and 3D surface terrain.",color=Muted,fontSize=13.sp,modifier=Modifier.padding(top=4.dp))
             }
         }
     }
@@ -194,19 +195,109 @@ private fun ActionCard(icon:String,title:String,sub:String,onClick:()->Unit,modi
 }
 
 @Composable
+private fun RocketStackPreview(rocket:Rocket){
+    Canvas(Modifier.fillMaxSize()){
+        drawRect(Brush.verticalGradient(listOf(Color(0xFF10192B),Color(0xFF070A13))),size=Size(size.width,size.height))
+        for(x in 0..(size.width/28f).toInt()) drawLine(Color(0x263C5579),Offset(x*28f,0f),Offset(x*28f,size.height),1f)
+        for(y in 0..(size.height/28f).toInt()) drawLine(Color(0x263C5579),Offset(0f,y*28f),Offset(size.width,y*28f),1f)
+        val halo=Offset(size.width*.5f,size.height*.56f)
+        drawCircle(Brush.radialGradient(listOf(Color(0x443E8BFF),Color(0x113E8BFF),Color.Transparent),halo,size.minDimension*.58f),size.minDimension*.58f,halo)
+        val count=rocket.parts.size.coerceAtLeast(1)
+        val partH=min(38f,(size.height-104f)/count).coerceAtLeast(18f)
+        val partGap=2f
+        val partW=size.width*.36f
+        val left=(size.width-partW)*.5f
+        val total=count*(partH+partGap)
+        var y=size.height-62f-partH
+        rocket.parts.asReversed().forEach{part->
+            drawRocketComponent(part,left,y,partW,partH)
+            y-=partH+partGap
+        }
+        // Mobile launch clamp and illuminated platform.
+        drawRoundRect(Color(0xFF202D43),Offset(size.width*.25f,size.height-54f),Size(size.width*.5f,10f),CornerRadius(4f))
+        drawLine(Color(0xFF45D7FF),Offset(size.width*.18f,size.height-43f),Offset(size.width*.82f,size.height-43f),2f)
+        drawCircle(Color(0x6645D7FF),size.width*.32f,Offset(size.width*.5f,size.height-42f),style=Stroke(width=2f))
+        if(rocket.parts.isEmpty()){
+            drawCircle(Color(0x8845D7FF),18f,Offset(size.width*.5f,size.height*.42f),style=Stroke(width=2f))
+        }
+    }
+}
+
+private fun DrawScope.drawRocketComponent(part:PartType,left:Float,top:Float,width:Float,height:Float){
+    val cx=left+width/2f
+    val edge=Color(0xFF111827)
+    val metal=Brush.horizontalGradient(listOf(Color(0xFF192231),part.color,Color(0xFFE6EDF7),part.color,Color(0xFF202A3A)),left,left+width)
+    // Contact shadow provides separation between stacked modules.
+    drawRoundRect(Color(0x77000000),Offset(left+3f,top+3f),Size(width,height),CornerRadius(4f))
+    when(part){
+        PartType.NOSE->{
+            val p=Path().apply{moveTo(cx,top);lineTo(left+width*.91f,top+height*.78f);quadraticTo(cx,top+height*1.06f,left+width*.09f,top+height*.78f);close()}
+            drawPath(p,Brush.horizontalGradient(listOf(Color(0xFF384254),Color(0xFFF4F7FC),part.color,Color(0xFF252E3E)),left,left+width))
+            drawPath(p,edge,style=Stroke(1.6f))
+            drawLine(Color(0xFFFFD28A),Offset(cx,top+height*.17f),Offset(cx,top+height*.70f),1.5f)
+            drawRoundRect(Color(0xFF111B2A),Offset(cx-width*.18f,top+height*.50f),Size(width*.36f,height*.12f),CornerRadius(3f))
+        }
+        PartType.CAPSULE->{
+            val p=Path().apply{moveTo(cx,top);cubicTo(left+width*.86f,top+height*.05f,left+width*.94f,top+height*.24f,left+width*.88f,top+height*.50f);lineTo(left+width*.84f,top+height*.92f);lineTo(left+width*.16f,top+height*.92f);lineTo(left+width*.12f,top+height*.50f);cubicTo(left+width*.06f,top+height*.24f,left+width*.14f,top+height*.05f,cx,top);close()}
+            drawPath(p,metal);drawPath(p,edge,style=Stroke(1.6f))
+            drawRoundRect(Color(0xFF182638),Offset(cx-width*.22f,top+height*.30f),Size(width*.44f,height*.25f),CornerRadius(height*.12f))
+            drawCircle(Color(0xFF69D9FF),height*.08f,Offset(cx,top+height*.42f))
+            drawRoundRect(Color(0xFFB8C6D8),Offset(left+width*.10f,top+height*.82f),Size(width*.80f,height*.10f),CornerRadius(2f))
+        }
+        PartType.TANK->{
+            drawRoundRect(metal,Offset(left+width*.07f,top+height*.02f),Size(width*.86f,height*.96f),CornerRadius(width*.11f))
+            drawRoundRect(edge,Offset(left+width*.07f,top+height*.02f),Size(width*.86f,height*.96f),CornerRadius(width*.11f),style=Stroke(1.4f))
+            for(i in 0..3){
+                val y=top+height*(.10f+i*.25f)
+                drawLine(Color(0xFF1B2739),Offset(left+width*.11f,y),Offset(left+width*.89f,y),2f)
+                drawLine(Color(0x99FFFFFF),Offset(left+width*.16f,y+2f),Offset(left+width*.84f,y+2f),.9f)
+            }
+            drawRoundRect(Color(0xFFD8E4EF),Offset(left+width*.41f,top+height*.19f),Size(width*.18f,height*.46f),CornerRadius(2f))
+            drawLine(Color(0xFFFFC46E),Offset(left+width*.20f,top+height*.69f),Offset(left+width*.80f,top+height*.69f),2f)
+        }
+        PartType.ENGINE->{
+            drawRoundRect(metal,Offset(left+width*.20f,top),Size(width*.60f,height*.34f),CornerRadius(2f))
+            val nozzle=Path().apply{moveTo(left+width*.27f,top+height*.28f);lineTo(left+width*.73f,top+height*.28f);lineTo(left+width*.92f,top+height*.86f);quadraticTo(cx,top+height*1.08f,left+width*.08f,top+height*.86f);close()}
+            drawPath(nozzle,Brush.horizontalGradient(listOf(Color(0xFF171E2B),Color(0xFFBAC7D8),Color(0xFF354154),Color(0xFF0D1421)),left,left+width))
+            drawPath(nozzle,edge,style=Stroke(1.5f))
+            drawOval(Color(0xFF05070C),Offset(left+width*.22f,top+height*.72f),Size(width*.56f,height*.18f))
+            drawOval(Color(0xFFFFA53F),Offset(left+width*.35f,top+height*.76f),Size(width*.30f,height*.10f))
+            drawLine(Color(0xFFFFD27F),Offset(cx,top+height*.79f),Offset(cx,top+height*.90f),2f)
+        }
+        PartType.FIN->{
+            val leftFin=Path().apply{moveTo(left+width*.18f,top+height*.25f);lineTo(left-width*.03f,top+height*.90f);lineTo(left+width*.32f,top+height*.79f);lineTo(left+width*.38f,top+height*.25f);close()}
+            val rightFin=Path().apply{moveTo(left+width*.82f,top+height*.25f);lineTo(left+width*1.03f,top+height*.90f);lineTo(left+width*.68f,top+height*.79f);lineTo(left+width*.62f,top+height*.25f);close()}
+            drawPath(leftFin,part.color);drawPath(rightFin,part.color)
+            drawRoundRect(metal,Offset(left+width*.28f,top),Size(width*.44f,height),CornerRadius(3f))
+            drawLine(Color.White.copy(alpha=.65f),Offset(cx,top+3f),Offset(cx,top+height-3f),1.1f)
+        }
+        PartType.DECOUPLER->{
+            drawRoundRect(metal,Offset(left+width*.04f,top+height*.17f),Size(width*.92f,height*.66f),CornerRadius(4f))
+            drawRoundRect(Color(0xFFD3DEED),Offset(left+width*.02f,top+height*.15f),Size(width*.96f,height*.20f),CornerRadius(2f))
+            drawRoundRect(Color(0xFF26354A),Offset(left+width*.02f,top+height*.66f),Size(width*.96f,height*.20f),CornerRadius(2f))
+            for(i in 0..5) drawCircle(Color(0xFFFFB74D),1.4f,Offset(left+width*(.16f+i*.136f),top+height*.49f))
+        }
+        PartType.SOLAR->{
+            drawRoundRect(Color(0xFFB6C5D9),Offset(cx-width*.10f,top+height*.35f),Size(width*.20f,height*.30f),CornerRadius(2f))
+            drawRect(Brush.verticalGradient(listOf(Color(0xFF144A91),Color(0xFF071C46))),Offset(left,top+height*.10f),Size(width*.36f,height*.80f))
+            drawRect(Brush.verticalGradient(listOf(Color(0xFF144A91),Color(0xFF071C46))),Offset(left+width*.64f,top+height*.10f),Size(width*.36f,height*.80f))
+            for(i in 1..3){
+                drawLine(Color(0xFF4EC8FF),Offset(left+width*.36f*i/3f,top+height*.1f),Offset(left+width*.36f*i/3f,top+height*.9f),.8f)
+                drawLine(Color(0xFF4EC8FF),Offset(left+width*.64f+width*.36f*i/3f,top+height*.1f),Offset(left+width*.64f+width*.36f*i/3f,top+height*.9f),.8f)
+            }
+            drawRect(Color(0xFF66D5FF),Offset(left,top+height*.10f),Size(width*.36f,height*.80f),style=Stroke(1.1f))
+            drawRect(Color(0xFF66D5FF),Offset(left+width*.64f,top+height*.10f),Size(width*.36f,height*.80f),style=Stroke(1.1f))
+        }
+    }
+}
+
+@Composable
 private fun BuilderScreen(rocket:Rocket,onAdd:(PartType)->Unit,onRemove:(PartType)->Unit,onClear:()->Unit,onBack:()->Unit,onLaunch:()->Unit){
     Shell("Vehicle Lab","Tap parts to add · stack them into a launcher",onBack){
         Row(verticalAlignment=Alignment.Top,modifier=Modifier.fillMaxWidth()){
             Surface(color=Panel,shape=RoundedCornerShape(20.dp),modifier=Modifier.weight(1f).height(420.dp)){
                 Box(Modifier.fillMaxSize(),contentAlignment=Alignment.BottomCenter){
-                    Canvas(Modifier.fillMaxSize()){
-                        drawCircle(Color(0xFF1B2A45),size.minDimension*.42f,Offset(size.width/2,size.height*.62f),alpha=.35f)
-                        var y=size.height*.62f
-                        rocket.parts.asReversed().forEach{part->
-                            drawRoundRect(part.color,topLeft=Offset(size.width*.34f,y),size=Size(size.width*.32f,42f),cornerRadius=CornerRadius(8f))
-                            y-=48f
-                        }
-                    }
+                    RocketStackPreview(rocket)
                     Text(if(rocket.parts.isEmpty())"ADD A CORE" else "STACK PREVIEW",color=Muted,fontSize=11.sp,modifier=Modifier.padding(bottom=10.dp))
                 }
             }
@@ -345,24 +436,91 @@ private fun FlightScreen(sim:SimState,onTick:(SimState)->Unit,onMap:()->Unit,onB
             Canvas(Modifier.fillMaxSize()){
                 val scale=(min(size.width,size.height)/170f).coerceAtLeast(.5f)
                 val center=Offset(size.width/2,size.height/2)
-                repeat(18){i->drawCircle(Color.White,1f,Offset(((i*83)%100)/100f*size.width,((i*47)%100)/100f*size.height),alpha=.35f)}
+                // Deep-space backdrop and layered starfield.
+                drawRect(Brush.verticalGradient(listOf(Color(0xFF070B18),Color(0xFF0D1630),Color(0xFF05060B))),size=Size(size.width,size.height))
+                repeat(74){i->
+                    val sx=((i*83+17)%997)/997f*size.width
+                    val sy=((i*47+29)%991)/991f*size.height
+                    val radius=if(i%9==0)2f else if(i%3==0)1.4f else .8f
+                    drawCircle(if(i%8==0)Color(0xFF8FDFFF) else Color.White,radius,Offset(sx,sy),alpha=if(i%5==0).75f else .34f)
+                }
+                // Atmospheric halo, then a shaded Earth with land and cloud bands.
                 val earthR=50*scale
-                drawCircle(Color(0xFF264B72),earthR,center)
-                drawCircle(Color(0xFF76B9E7),earthR*.92f,center,style=Stroke(width=2f),alpha=.35f)
+                drawCircle(Brush.radialGradient(listOf(Color(0x5549BFFF),Color(0x2249BFFF),Color.Transparent),center,earthR*1.48f),earthR*1.48f,center)
+                drawCircle(Brush.radialGradient(listOf(Color(0xFF3988C8),Color(0xFF1D4B83),Color(0xFF081326)),Offset(center.x-earthR*.32f,center.y-earthR*.38f),earthR*1.75f),earthR,center)
+                // Stylized landmasses kept within the visible disc.
+                val land1=Path().apply{
+                    moveTo(center.x-earthR*.72f,center.y-earthR*.22f)
+                    lineTo(center.x-earthR*.48f,center.y-earthR*.43f)
+                    lineTo(center.x-earthR*.22f,center.y-earthR*.35f)
+                    lineTo(center.x-earthR*.08f,center.y-earthR*.08f)
+                    lineTo(center.x-earthR*.28f,center.y+earthR*.12f)
+                    lineTo(center.x-earthR*.40f,center.y+earthR*.47f)
+                    lineTo(center.x-earthR*.62f,center.y+earthR*.35f)
+                    close()
+                }
+                drawPath(land1,Brush.linearGradient(listOf(Color(0xFF76B77B),Color(0xFF34755B)),Offset(center.x-earthR,center.y-earthR),Offset(center.x,center.y+earthR)))
+                val land2=Path().apply{
+                    moveTo(center.x+earthR*.10f,center.y-earthR*.45f)
+                    lineTo(center.x+earthR*.48f,center.y-earthR*.32f)
+                    lineTo(center.x+earthR*.66f,center.y-earthR*.05f)
+                    lineTo(center.x+earthR*.42f,center.y+earthR*.19f)
+                    lineTo(center.x+earthR*.25f,center.y+earthR*.42f)
+                    lineTo(center.x+earthR*.08f,center.y+earthR*.13f)
+                    lineTo(center.x-earthR*.02f,center.y-earthR*.12f)
+                    close()
+                }
+                drawPath(land2,Brush.linearGradient(listOf(Color(0xFF83BB84),Color(0xFF3C8062)),Offset(center.x,center.y-earthR),Offset(center.x+earthR,center.y+earthR)))
+                repeat(5){i->
+                    val y=center.y-earthR*.56f+i*earthR*.24f
+                    drawOval(Color(0x88D8F0FF),topLeft=Offset(center.x-earthR*.72f,y),size=Size(earthR*1.38f,earthR*.075f),style=Stroke(width=earthR*.04f))
+                }
+                drawCircle(Color(0x994BC3FF),earthR,center,style=Stroke(width=max(1.5f,earthR*.035f)))
+                // Predicted trajectory.
                 if(sim.trail.size>1){
                     val path=Path()
                     sim.trail.forEachIndexed{idx,p->
                         val q=worldToScreen(p,sim.pos,center,scale)
                         if(idx==0)path.moveTo(q.x,q.y) else path.lineTo(q.x,q.y)
                     }
-                    drawPath(path,color=Cyan,style=Stroke(width=2.5f),alpha=.8f)
+                    drawPath(path,color=Color(0xAA45D7FF),style=Stroke(width=5f))
+                    drawPath(path,color=Cyan,style=Stroke(width=2f),alpha=.9f)
                 }
-                val rp=worldToScreen(sim.pos,sim.pos,center,scale)
-                drawCircle(Color.White,7f,rp)
-                drawLine(color=Orange,start=rp,end=Offset(rp.x+cos(pitchOffset*PI/180).toFloat()*30f,rp.y-sin(pitchOffset*PI/180).toFloat()*30f),strokeWidth=4f)
+                // Moon marker and orbit guide.
                 val moon=moonPos(sim.time)
                 val ms=worldToScreen(moon,sim.pos,center,scale)
-                drawCircle(Color(0xFF9B9EA8),13f,ms)
+                drawCircle(Color(0x332A3142),19f,ms)
+                drawCircle(Brush.radialGradient(listOf(Color(0xFFD6D8E0),Color(0xFF777F91),Color(0xFF3A4152)),Offset(ms.x-4f,ms.y-4f),24f),13f,ms)
+                repeat(6){i->drawCircle(Color(0x55777F91),1.2f,Offset(ms.x+cos(i*1.1).toFloat()*7f,ms.y+sin(i*1.1).toFloat()*6f))}
+                // Rocket silhouette follows the commanded attitude.
+                val rp=worldToScreen(sim.pos,sim.pos,center,scale)
+                val fx=cos(sim.angle).toFloat()
+                val fy=-sin(sim.angle).toFloat()
+                val bx=-fx
+                val by=-fy
+                val sideX=-fy
+                val sideY=fx
+                if(sim.fuel>0.01 && sim.throttle>0.01 && !sim.crashed && !sim.landed){
+                    val flameLen=12f+sim.throttle.toFloat()*24f
+                    val flame=Path().apply{
+                        moveTo(rp.x+bx*8f+sideX*3.5f,rp.y+by*8f+sideY*3.5f)
+                        lineTo(rp.x+bx*flameLen,rp.y+by*flameLen)
+                        lineTo(rp.x+bx*8f-sideX*3.5f,rp.y+by*8f-sideY*3.5f)
+                        close()
+                    }
+                    drawPath(flame,Brush.verticalGradient(listOf(Color(0xFFFFF4BC),Color(0xFFFFA43A),Color(0x55FF4D2E)),startY=rp.y-30f,endY=rp.y+30f))
+                    drawCircle(Color(0x55FF8B38),9f,Offset(rp.x+bx*10f,rp.y+by*10f))
+                }
+                val rocketBody=Path().apply{
+                    moveTo(rp.x+fx*13f,rp.y+fy*13f)
+                    lineTo(rp.x-fx*8f+sideX*5f,rp.y-fy*8f+sideY*5f)
+                    lineTo(rp.x-fx*6f,rp.y-fy*6f)
+                    lineTo(rp.x-fx*8f-sideX*5f,rp.y-fy*8f-sideY*5f)
+                    close()
+                }
+                drawPath(rocketBody,Brush.linearGradient(listOf(Color.White,Color(0xFF9BAAC1),Color(0xFF404D64)),Offset(rp.x-8f,rp.y-8f),Offset(rp.x+8f,rp.y+8f)))
+                drawCircle(Color(0xFF45D7FF),2.2f,Offset(rp.x+fx*2.5f,rp.y+fy*2.5f))
+                drawCircle(Color.White,2f,rp)
             }
         }
         Text("THROTTLE "+(sim.throttle*100).roundToInt()+"%",color=Muted,fontSize=10.sp,fontWeight=FontWeight.Bold)
