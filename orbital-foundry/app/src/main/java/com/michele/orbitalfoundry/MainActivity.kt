@@ -369,7 +369,10 @@ private fun FlightScreen(sim:SimState,onTick:(SimState)->Unit,onMap:()->Unit,onB
         Slider(value=sim.throttle.toFloat(),onValueChange={onTick(sim.copy(throttle=it.toDouble()))},valueRange=0f..1f,colors=SliderDefaults.colors(thumbColor=Cyan,activeTrackColor=Cyan))
         Row(horizontalArrangement=Arrangement.spacedBy(6.dp),modifier=Modifier.fillMaxWidth()){
             SmallButton(if(paused)"RESUME" else "PAUSE",{paused=!paused},Modifier.weight(1f))
-            SmallButton("STAGE",{onTick(sim.copy(stage=sim.stage+1))},Modifier.weight(1f))
+            SmallButton("STAGE",{onTick(sim.copy(stage=(sim.stage+1).coerceAtMost(2)))},Modifier.weight(1f))
+            SmallButton("P−",{pitchOffset=(pitchOffset-5f).coerceIn(0f,180f);onTick(sim.copy(guidance=Guidance.MANUAL))},Modifier.weight(1f))
+            SmallButton("MAN",{onTick(sim.copy(guidance=Guidance.MANUAL))},Modifier.weight(1f))
+            SmallButton("P+",{pitchOffset=(pitchOffset+5f).coerceIn(0f,180f);onTick(sim.copy(guidance=Guidance.MANUAL))},Modifier.weight(1f))
             SmallButton("PRO",{onTick(sim.copy(guidance=Guidance.PROGRADE))},Modifier.weight(1f))
             SmallButton("RET",{onTick(sim.copy(guidance=Guidance.RETROGRADE))},Modifier.weight(1f))
             SmallButton("WARP x"+timeWarp,{timeWarp=if(timeWarp==1)5 else if(timeWarp==5)20 else 1},Modifier.weight(1f))
@@ -377,7 +380,7 @@ private fun FlightScreen(sim:SimState,onTick:(SimState)->Unit,onMap:()->Unit,onB
         if(sim.crashed){
             Surface(color=Color(0xEE1A0A11),shape=RoundedCornerShape(18.dp),modifier=Modifier.fillMaxWidth().padding(top=8.dp)){Text("VEHICLE LOST · RECOVERY REQUIRED",color=Red,fontWeight=FontWeight.Black,modifier=Modifier.padding(14.dp))}
         }else if(sim.landed){
-            Surface(color=Color(0xEE0D2A1F),shape=RoundedCornerShape(18.dp),modifier=Modifier.fillMaxWidth().padding(top=8.dp).clickable{onMission("Soft Landing")} ){Text("SOFT LANDING · TAP TO CLAIM MISSION",color=Green,fontWeight=FontWeight.Black,modifier=Modifier.padding(14.dp))}
+            Surface(color=Color(0xEE0D2A1F),shape=RoundedCornerShape(18.dp),modifier=Modifier.fillMaxWidth().padding(top=8.dp)){Text("SOFT LANDING · OBJECTIVE ACHIEVED · CLAIM IN MISSION CONTROL",color=Green,fontWeight=FontWeight.Black,modifier=Modifier.padding(14.dp))}
         }
     }
 }
