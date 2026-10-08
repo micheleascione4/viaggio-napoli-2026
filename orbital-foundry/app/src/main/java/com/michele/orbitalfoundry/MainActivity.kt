@@ -20,6 +20,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -105,7 +106,7 @@ fun OrbitalFoundryApp(){
             Screen.HOME->HomeScreen(rocket,missions,career,{screen=Screen.BUILD},{if(rocket.hasEngine&&rocket.hasCapsule){sim=launchState(rocket);screen=Screen.FLIGHT}},{screen=Screen.MISSIONS})
             Screen.BUILD->BuilderScreen(rocket,{rocket=rocket.copy(parts=rocket.parts+it)},{p->val l=rocket.parts.toMutableList();val i=l.indexOfLast{it==p};if(i>=0)l.removeAt(i);rocket=rocket.copy(parts=l)},{rocket=Rocket(emptyList())},{screen=Screen.HOME},{if(rocket.hasEngine&&rocket.hasCapsule){sim=launchState(rocket);screen=Screen.FLIGHT}})
             Screen.MISSIONS->MissionScreen(missions,career,{career=it},{screen=Screen.HOME})
-            Screen.FLIGHT->{val s=sim;if(s!=null)FlightScreen(s,{sim=it},{screen=Screen.MAP},{screen=Screen.HOME}){name->missions=missions+name}}
+            Screen.FLIGHT->{val s=sim;if(s!=null)FlightScreen(s,{next->sim=next;missions=missions+missionCompletions(next)},{screen=Screen.MAP},{screen=Screen.HOME}){name->missions=missions+name}}
             Screen.MAP->{val s=sim;if(s!=null)MapScreen(s,{screen=Screen.FLIGHT})}
         }
     }
@@ -249,7 +250,7 @@ private fun MissionScreen(missions:Set<String>,career:CareerState,onCareer:(Care
         LazyColumn(verticalArrangement=Arrangement.spacedBy(10.dp)){
             items(CareerDatabase.contracts){contract->
                 val done=contract.id in career.completedContracts
-                val available=canAccept(contract,career)
+                val available=canAccept(contract,career) && contract.id in missions
                 Surface(color=Panel,shape=RoundedCornerShape(18.dp),modifier=Modifier.fillMaxWidth()){
                     Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.padding(14.dp)){
                         Column(Modifier.weight(1f)){
@@ -261,7 +262,7 @@ private fun MissionScreen(missions:Set<String>,career:CareerState,onCareer:(Care
                             Text("€${contract.reward/1000}K  ·  ${contract.science} SCI",color=Orange,fontSize=10.sp,fontWeight=FontWeight.Bold,modifier=Modifier.padding(start=34.dp,top=5.dp))
                         }
                         if(done) Text("DONE",color=Green,fontSize=9.sp,fontWeight=FontWeight.Black)
-                        else Button(onClick={onCareer(completeContract(contract,career))},enabled=available){Text(if(available)"CLAIM" else "LOCK",fontSize=9.sp)}
+                        else Button(onClick={onCareer(completeContract(contract,career))},enabled=available){Text(if(available)"CLAIM" else if(contract.id in missions)"READY" else "LOCK",fontSize=9.sp)}
                     }
                 }
             }
@@ -287,6 +288,18 @@ private fun MissionScreen(missions:Set<String>,career:CareerState,onCareer:(Care
     }
 }
 
+private fun missionCompletions(s:SimState):Set<String>{
+    val alt=s.pos.mag()-50.0
+    val orbit=orbitalMetrics(s.pos,s.vel)
+    val done=mutableSetOf<String>()
+    if(alt>=80) done+="suborbital"
+    if(alt>=80 && orbit.periapsis-50.0>=50 && orbit.apoapsis-50.0>=80) done+="orbit"
+    if(alt>=120 && orbit.periapsis-50.0>=120) done+="satellite"
+    if(s.landed) done+="recovery"
+    if(s.landed) done+="suborbital"
+    return done
+}
+
 private fun launchState(rocket:Rocket)=SimState(fuel=rocket.fuel,mass=rocket.dryMass+rocket.fuel,thrust=rocket.thrust)
 
 @Composable
@@ -308,8 +321,10 @@ private fun FlightScreen(sim:SimState,onTick:(SimState)->Unit,onMap:()->Unit,onB
     val speed=sim.vel.mag()
     val orbit=orbitalMetrics(sim.pos,sim.vel)
     val mission=when{
-        alt>650->"MOONSHOT"
-        alt>50&&orbit.periapsis>50->"STABLE ORBIT"
+        sim.landed->"RECOVERY"
+        orbit.periapsis-50>=120&&alt>=120->"SATELLITE ORBIT"
+        orbit.periapsis-50>=50&&alt>=80->"STABLE ORBIT"
+        alt>=80->"SUBORBITAL"
         alt>35->"ASCENT"
         else->"LAUNCH"
     }
@@ -354,7 +369,10 @@ private fun FlightScreen(sim:SimState,onTick:(SimState)->Unit,onMap:()->Unit,onB
         Slider(value=sim.throttle.toFloat(),onValueChange={onTick(sim.copy(throttle=it.toDouble()))},valueRange=0f..1f,colors=SliderDefaults.colors(thumbColor=Cyan,activeTrackColor=Cyan))
         Row(horizontalArrangement=Arrangement.spacedBy(6.dp),modifier=Modifier.fillMaxWidth()){
             SmallButton(if(paused)"RESUME" else "PAUSE",{paused=!paused},Modifier.weight(1f))
-            SmallButton("STAGE",{onTick(sim.copy(stage=sim.stage+1))},Modifier.weight(1f))
+            SmallButton("STAGE",{onTick(sim.copy(stage=(sim.stage+1).coerceAtMost(2)))},Modifier.weight(1f))
+            SmallButton("P−",{pitchOffset=(pitchOffset-5f).coerceIn(0f,180f);onTick(sim.copy(guidance=Guidance.MANUAL))},Modifier.weight(1f))
+            SmallButton("MAN",{onTick(sim.copy(guidance=Guidance.MANUAL))},Modifier.weight(1f))
+            SmallButton("P+",{pitchOffset=(pitchOffset+5f).coerceIn(0f,180f);onTick(sim.copy(guidance=Guidance.MANUAL))},Modifier.weight(1f))
             SmallButton("PRO",{onTick(sim.copy(guidance=Guidance.PROGRADE))},Modifier.weight(1f))
             SmallButton("RET",{onTick(sim.copy(guidance=Guidance.RETROGRADE))},Modifier.weight(1f))
             SmallButton("WARP x"+timeWarp,{timeWarp=if(timeWarp==1)5 else if(timeWarp==5)20 else 1},Modifier.weight(1f))
@@ -362,7 +380,7 @@ private fun FlightScreen(sim:SimState,onTick:(SimState)->Unit,onMap:()->Unit,onB
         if(sim.crashed){
             Surface(color=Color(0xEE1A0A11),shape=RoundedCornerShape(18.dp),modifier=Modifier.fillMaxWidth().padding(top=8.dp)){Text("VEHICLE LOST · RECOVERY REQUIRED",color=Red,fontWeight=FontWeight.Black,modifier=Modifier.padding(14.dp))}
         }else if(sim.landed){
-            Surface(color=Color(0xEE0D2A1F),shape=RoundedCornerShape(18.dp),modifier=Modifier.fillMaxWidth().padding(top=8.dp).clickable{onMission("Soft Landing")} ){Text("SOFT LANDING · TAP TO CLAIM MISSION",color=Green,fontWeight=FontWeight.Black,modifier=Modifier.padding(14.dp))}
+            Surface(color=Color(0xEE0D2A1F),shape=RoundedCornerShape(18.dp),modifier=Modifier.fillMaxWidth().padding(top=8.dp)){Text("SOFT LANDING · OBJECTIVE ACHIEVED · CLAIM IN MISSION CONTROL",color=Green,fontWeight=FontWeight.Black,modifier=Modifier.padding(14.dp))}
         }
     }
 }

@@ -22,6 +22,7 @@ object CareerDatabase {
         Contract("suborbital","First Light","Reach 80 km altitude and return safely.",15000,5),
         Contract("orbit","Orbital Qualification","Complete one stable Earth orbit.",30000,12,"suborbital"),
         Contract("satellite","Tiny Satellite","Deploy a probe into a 120 km circular orbit.",45000,18,"orbit"),
+        Contract("recovery","Safe Recovery","Land the vehicle safely after a flight.",20000,8,"suborbital"),
         Contract("moon","Lunar Pathfinder","Reach lunar orbit.",90000,35,"satellite"),
         Contract("landing","Lunar Landing","Land on the Moon and transmit science.",150000,60,"moon"),
         Contract("mars","Red Planet","Reach Mars transfer trajectory.",300000,100,"landing")
