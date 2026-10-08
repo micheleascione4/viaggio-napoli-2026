@@ -70,7 +70,7 @@ data class Rocket(val parts:List<PartType>){
     val dryMass get()=parts.sumOf{it.mass}
     val fuel get()=parts.sumOf{it.fuel}
     val thrust get()=parts.sumOf{it.thrust}
-    val hasEngine get()=parts.any{it==PartType.ENGINE}
+    val hasEngine get()=parts.any{it==PartType.ENGINE||it==PartType.VACUUM_ENGINE||it==PartType.HEAVY_ENGINE}
     val hasCapsule get()=parts.any{it==PartType.CAPSULE}
     val hasDockingPort get()=parts.any{it==PartType.DOCKING_PORT}
     val hasRcs get()=parts.any{it==PartType.RCS}
@@ -631,7 +631,7 @@ private fun MissionScreen(missions:Set<String>,career:CareerState,onCareer:(Care
         LazyColumn(verticalArrangement=Arrangement.spacedBy(10.dp)){
             items(CareerDatabase.contracts){contract->
                 val done=contract.id in career.completedContracts
-                val available=canAccept(contract,career) && contract.id in missions
+                val available=contract.availableInBuild && canAccept(contract,career) && contract.id in missions
                 Surface(color=Panel,shape=RoundedCornerShape(18.dp),modifier=Modifier.fillMaxWidth()){
                     Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.padding(14.dp)){
                         Column(Modifier.weight(1f)){
@@ -643,7 +643,7 @@ private fun MissionScreen(missions:Set<String>,career:CareerState,onCareer:(Care
                             Text("€${contract.reward/1000}K  ·  ${contract.science} SCI",color=Orange,fontSize=10.sp,fontWeight=FontWeight.Bold,modifier=Modifier.padding(start=34.dp,top=5.dp))
                         }
                         if(done) Text("DONE",color=Green,fontSize=9.sp,fontWeight=FontWeight.Black)
-                        else Button(onClick={onCareer(completeContract(contract,career))},enabled=available){Text(if(available)"CLAIM" else if(contract.id in missions)"READY" else "LOCK",fontSize=9.sp)}
+                        else Button(onClick={onCareer(completeContract(contract,career))},enabled=available){Text(if(available)"CLAIM" else if(!contract.availableInBuild)"NEXT PHASE" else if(contract.id in missions)"READY" else "LOCK",fontSize=9.sp)}
                     }
                 }
             }
