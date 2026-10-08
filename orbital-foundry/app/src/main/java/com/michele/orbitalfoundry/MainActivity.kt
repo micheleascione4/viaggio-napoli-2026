@@ -10,8 +10,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.gestures.detectTransformGestures
@@ -375,7 +377,7 @@ private fun MainNavigationBar(current:Screen,mapAvailable:Boolean,onNavigate:(Sc
                 colors=NavigationBarItemDefaults.colors(
                     selectedIconColor=Cyan,
                     selectedTextColor=Cyan,
-                    selectedIndicatorColor=Color(0xFF15354B),
+                    indicatorColor=Color(0xFF15354B),
                     unselectedIconColor=Muted,
                     unselectedTextColor=Muted,
                     disabledIconColor=Color(0xFF39495B),
