@@ -2,7 +2,7 @@ name: Build 20X Mini Arcade APK
 
 on:
   push:
-    branches: [ mini-arcade-v1 ]
+    branches: [ main, mini-arcade-v1 ]
   workflow_dispatch:
 
 concurrency:
