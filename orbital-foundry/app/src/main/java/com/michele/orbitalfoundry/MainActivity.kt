@@ -359,7 +359,7 @@ private fun FlightScreen(sim:SimState,onTick:(SimState)->Unit,onMap:()->Unit,onB
                 }
                 val rp=worldToScreen(sim.pos,sim.pos,center,scale)
                 drawCircle(Color.White,7f,rp)
-                drawLine(rp,Offset(rp.x+cos(pitchOffset*PI/180).toFloat()*30f,rp.y-sin(pitchOffset*PI/180).toFloat()*30f),color=Orange,strokeWidth=4f)
+                drawLine(color=Orange,start=rp,end=Offset(rp.x+cos(pitchOffset*PI/180).toFloat()*30f,rp.y-sin(pitchOffset*PI/180).toFloat()*30f),strokeWidth=4f)
                 val moon=moonPos(sim.time)
                 val ms=worldToScreen(moon,sim.pos,center,scale)
                 drawCircle(Color(0xFF9B9EA8),13f,ms)
