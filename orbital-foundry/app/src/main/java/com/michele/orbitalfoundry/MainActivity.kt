@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
+import androidx.compose.foundation.border
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -99,10 +100,11 @@ fun OrbitalFoundryApp(){
         var rocket by remember{mutableStateOf(Rocket(listOf(PartType.NOSE,PartType.CAPSULE,PartType.TANK,PartType.ENGINE,PartType.FIN)))}
         var sim by remember{mutableStateOf<SimState?>(null)}
         var missions by remember{mutableStateOf(setOf<String>())}
+        var career by remember{mutableStateOf(CareerState())}
         when(screen){
-            Screen.HOME->HomeScreen(rocket,missions,{screen=Screen.BUILD},{if(rocket.hasEngine&&rocket.hasCapsule){sim=launchState(rocket);screen=Screen.FLIGHT}},{screen=Screen.MISSIONS})
+            Screen.HOME->HomeScreen(rocket,missions,career,{screen=Screen.BUILD},{if(rocket.hasEngine&&rocket.hasCapsule){sim=launchState(rocket);screen=Screen.FLIGHT}},{screen=Screen.MISSIONS})
             Screen.BUILD->BuilderScreen(rocket,{rocket=rocket.copy(parts=rocket.parts+it)},{p->val l=rocket.parts.toMutableList();val i=l.indexOfLast{it==p};if(i>=0)l.removeAt(i);rocket=rocket.copy(parts=l)},{rocket=Rocket(emptyList())},{screen=Screen.HOME},{if(rocket.hasEngine&&rocket.hasCapsule){sim=launchState(rocket);screen=Screen.FLIGHT}})
-            Screen.MISSIONS->MissionScreen(missions,{screen=Screen.HOME})
+            Screen.MISSIONS->MissionScreen(missions,career,{career=it},{screen=Screen.HOME})
             Screen.FLIGHT->{val s=sim;if(s!=null)FlightScreen(s,{sim=it},{screen=Screen.MAP},{screen=Screen.HOME}){name->missions=missions+name}}
             Screen.MAP->{val s=sim;if(s!=null)MapScreen(s,{screen=Screen.FLIGHT})}
         }
@@ -122,7 +124,7 @@ private fun Shell(title:String,subtitle:String,onBack:()->Unit,content:@Composab
 }
 
 @Composable
-private fun HomeScreen(rocket:Rocket,missions:Set<String>,onBuild:()->Unit,onLaunch:()->Unit,onMissions:()->Unit){
+private fun HomeScreen(rocket:Rocket,missions:Set<String>,career:CareerState,onBuild:()->Unit,onLaunch:()->Unit,onMissions:()->Unit){
     Column(Modifier.fillMaxSize().background(Bg).padding(18.dp)){
         Row(verticalAlignment=Alignment.CenterVertically){
             Column(Modifier.weight(1f)){
@@ -137,6 +139,11 @@ private fun HomeScreen(rocket:Rocket,missions:Set<String>,onBuild:()->Unit,onLau
             Column(Modifier.padding(18.dp)){
                 Text("FLIGHT READY",color=Green,fontSize=12.sp,fontWeight=FontWeight.Black)
                 Text("Current vehicle",fontSize=22.sp,fontWeight=FontWeight.Black)
+                Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.padding(top=6.dp)){
+                    Metric("FUNDS","€${career.funds/1000}K",Modifier.weight(1f))
+                    Metric("SCIENCE","${career.science}",Modifier.weight(1f))
+                    Metric("TECH","${career.unlocked.size}",Modifier.weight(1f))
+                }
                 Spacer(Modifier.height(10.dp))
                 Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()){
                     Metric("MASS","%.1f t".format(rocket.dryMass+rocket.fuel),Modifier.weight(1f))
@@ -237,23 +244,42 @@ private fun BuilderScreen(rocket:Rocket,onAdd:(PartType)->Unit,onRemove:(PartTyp
 }
 
 @Composable
-private fun MissionScreen(missions:Set<String>,onBack:()->Unit){
-    val all=listOf(
-        Triple("Reach 100 km","Suborbital hop · prove the vehicle",Green),
-        Triple("Stable Orbit","Complete a closed Earth orbit",Cyan),
-        Triple("Moonshot","Cross lunar sphere of influence",Violet),
-        Triple("Soft Landing","Touch down below 2 m/s",Orange),
-        Triple("Return Home","Re-enter and survive",Red)
-    )
-    Shell("Mission Control","Contracts reward precision, not chaos",onBack){
+private fun MissionScreen(missions:Set<String>,career:CareerState,onCareer:(CareerState)->Unit,onBack:()->Unit){
+    Shell("Mission Control","Contracts · rewards · technology progression",onBack){
         LazyColumn(verticalArrangement=Arrangement.spacedBy(10.dp)){
-            items(all){m->
-                val done=m.first in missions
+            items(CareerDatabase.contracts){contract->
+                val done=contract.id in career.completedContracts
+                val available=canAccept(contract,career)
                 Surface(color=Panel,shape=RoundedCornerShape(18.dp),modifier=Modifier.fillMaxWidth()){
-                    Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.padding(16.dp)){
-                        Text(if(done)"✓" else "○",fontSize=28.sp,color=if(done)Green else m.third)
-                        Column(Modifier.weight(1f).padding(start=12.dp)){Text(m.first,fontWeight=FontWeight.Black);Text(m.second,color=Muted,fontSize=12.sp)}
-                        if(done)Text("DONE",color=Green,fontSize=10.sp,fontWeight=FontWeight.Black)
+                    Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.padding(14.dp)){
+                        Column(Modifier.weight(1f)){
+                            Row(verticalAlignment=Alignment.CenterVertically){
+                                Text(if(done)"✓" else "○",fontSize=24.sp,color=if(done)Green else Cyan)
+                                Text(contract.title,fontWeight=FontWeight.Black,fontSize=16.sp,modifier=Modifier.padding(start=10.dp))
+                            }
+                            Text(contract.description,color=Muted,fontSize=11.sp,modifier=Modifier.padding(start=34.dp,top=3.dp))
+                            Text("€${contract.reward/1000}K  ·  ${contract.science} SCI",color=Orange,fontSize=10.sp,fontWeight=FontWeight.Bold,modifier=Modifier.padding(start=34.dp,top=5.dp))
+                        }
+                        if(done) Text("DONE",color=Green,fontSize=9.sp,fontWeight=FontWeight.Black)
+                        else Button(onClick={onCareer(completeContract(contract,career))},enabled=available){Text(if(available)"CLAIM" else "LOCK",fontSize=9.sp)}
+                    }
+                }
+            }
+            item{
+                Spacer(Modifier.height(4.dp))
+                Text("TECH TREE",fontWeight=FontWeight.Black,fontSize=12.sp,color=Muted)
+            }
+            items(CareerDatabase.tech){tech->
+                val unlocked=tech.id in career.unlocked
+                val upgrade=unlockTech(tech,career)
+                Surface(color=if(unlocked)Panel2 else Panel,shape=RoundedCornerShape(16.dp),modifier=Modifier.fillMaxWidth()){
+                    Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.padding(14.dp)){
+                        Text(if(unlocked)"◆" else "◇",color=if(unlocked)Green else Violet,fontSize=22.sp)
+                        Column(Modifier.weight(1f).padding(start=10.dp)){
+                            Text(tech.title,fontWeight=FontWeight.Bold)
+                            Text(if(unlocked)"UNLOCKED" else "€${tech.cost/1000}K · ${tech.science} SCI",color=Muted,fontSize=10.sp)
+                        }
+                        if(!unlocked) Button(onClick={upgrade?.let(onCareer)},enabled=upgrade!=null){Text("UNLOCK",fontSize=9.sp)}
                     }
                 }
             }
