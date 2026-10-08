@@ -2,7 +2,7 @@ name: Build Orbital Foundry APK
 
 on:
   push:
-    branches: [ orbital-foundry-v1 ]
+    branches: [ main, orbital-foundry-v1 ]
   workflow_dispatch:
 
 concurrency:
