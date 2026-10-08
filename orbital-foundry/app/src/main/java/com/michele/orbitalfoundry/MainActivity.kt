@@ -56,6 +56,8 @@ enum class PartType(
     ENGINE("Vector Engine","▲",3.2,0.0,1250.0,Orange,330.0),
     VACUUM_ENGINE("Vector Vacuum Engine","▲",3.2,0.0,1250.0,Cyan,500.0),
     HEAVY_ENGINE("Heavy Lift Engine","▼",8.5,0.0,4000.0,Color(0xFFFF875A),330.0),
+    ION_ENGINE("Ion Thruster","✣",0.8,0.0,2.5,Color(0xFF68E7FF),2200.0),
+    ION_TANK("Xenon Tank","▣",0.5,6.0,0.0,Color(0xFF4DD5D0)),
     DECOUPLER("Stage Decoupler","⊙",0.8,0.0,0.0,Red),
     FIN("Control Fins","⌁",1.0,0.0,0.0,Green),
     PARACHUTE("Recovery Parachute","⬙",1.2,0.0,0.0,Color(0xFFFF7D90)),
@@ -70,7 +72,7 @@ data class Rocket(val parts:List<PartType>){
     val dryMass get()=parts.sumOf{it.mass}
     val fuel get()=parts.sumOf{it.fuel}
     val thrust get()=parts.sumOf{it.thrust}
-    val hasEngine get()=parts.any{it==PartType.ENGINE||it==PartType.VACUUM_ENGINE||it==PartType.HEAVY_ENGINE}
+    val hasEngine get()=parts.any{it==PartType.ENGINE||it==PartType.VACUUM_ENGINE||it==PartType.HEAVY_ENGINE||it==PartType.ION_ENGINE}
     val hasCapsule get()=parts.any{it==PartType.CAPSULE}
     val hasDockingPort get()=parts.any{it==PartType.DOCKING_PORT}
     val hasRcs get()=parts.any{it==PartType.RCS}
@@ -193,10 +195,11 @@ fun OrbitalFoundryApp(showTutorialOnStart:Boolean,onTutorialComplete:()->Unit){
 private fun requiredTech(part:PartType):String?=when(part){
     PartType.NOSE->null
     PartType.CAPSULE,PartType.PARACHUTE,PartType.HEATSHIELD->"capsule"
-    PartType.TANK->"small_tank"
+    PartType.TANK,PartType.ION_TANK->if(part==PartType.ION_TANK)"ion" else "small_tank"
     PartType.ENGINE,PartType.DECOUPLER,PartType.FIN->"starter_engine"
     PartType.VACUUM_ENGINE->"vacuum"
     PartType.HEAVY_ENGINE->"heavy"
+    PartType.ION_ENGINE,PartType.ION_TANK->"ion"
     PartType.FAIRING,PartType.PROBE_CORE->"fairing"
     PartType.LANDING_LEGS->"landing"
     PartType.RCS->"rcs"
@@ -211,7 +214,7 @@ private fun addPartInUsefulPosition(rocket:Rocket,part:PartType):Rocket{
     val list=rocket.parts.toMutableList()
     when(part){
         PartType.DECOUPLER->{ return addUpperStage(rocket) }
-        PartType.TANK,PartType.ENGINE,PartType.VACUUM_ENGINE,PartType.HEAVY_ENGINE,PartType.FIN->list.add(part)
+        PartType.TANK,PartType.ENGINE,PartType.VACUUM_ENGINE,PartType.HEAVY_ENGINE,PartType.ION_ENGINE,PartType.ION_TANK,PartType.FIN->list.add(part)
         PartType.DOCKING_PORT,PartType.RCS,PartType.PROBE_CORE,PartType.SOLAR,PartType.PARACHUTE,PartType.HEATSHIELD,PartType.LANDING_LEGS->{
             val firstTank=list.indexOfFirst{it==PartType.TANK}
             val insertAt=if(firstTank>=0)firstTank else list.size
@@ -425,7 +428,7 @@ private fun DrawScope.drawRocketComponent(part:PartType,left:Float,top:Float,wid
             drawCircle(Color(0xFF69D9FF),height*.08f,Offset(cx,top+height*.42f))
             drawRoundRect(Color(0xFFB8C6D8),Offset(left+width*.10f,top+height*.82f),Size(width*.80f,height*.10f),CornerRadius(2f))
         }
-        PartType.TANK->{
+        PartType.TANK,PartType.ION_TANK->{
             drawRoundRect(metal,Offset(left+width*.07f,top+height*.02f),Size(width*.86f,height*.96f),CornerRadius(width*.11f))
             drawRoundRect(edge,Offset(left+width*.07f,top+height*.02f),Size(width*.86f,height*.96f),CornerRadius(width*.11f),style=Stroke(1.4f))
             for(i in 0..3){
@@ -434,17 +437,17 @@ private fun DrawScope.drawRocketComponent(part:PartType,left:Float,top:Float,wid
                 drawLine(Color(0x99FFFFFF),Offset(left+width*.16f,y+2f),Offset(left+width*.84f,y+2f),.9f)
             }
             drawRoundRect(Color(0xFFD8E4EF),Offset(left+width*.41f,top+height*.19f),Size(width*.18f,height*.46f),CornerRadius(2f))
-            drawLine(Color(0xFFFFC46E),Offset(left+width*.20f,top+height*.69f),Offset(left+width*.80f,top+height*.69f),2f)
+            drawLine(if(part==PartType.ION_TANK)Color(0xFF67F3D0) else Color(0xFFFFC46E),Offset(left+width*.20f,top+height*.69f),Offset(left+width*.80f,top+height*.69f),2f)
         }
-        PartType.ENGINE,PartType.VACUUM_ENGINE,PartType.HEAVY_ENGINE->{
-            val nozzleWidth=if(part==PartType.HEAVY_ENGINE).78f else .60f
+        PartType.ENGINE,PartType.VACUUM_ENGINE,PartType.HEAVY_ENGINE,PartType.ION_ENGINE->{
+            val nozzleWidth=if(part==PartType.HEAVY_ENGINE).78f else if(part==PartType.ION_ENGINE).25f else .60f
             drawRoundRect(metal,Offset(left+(1f-nozzleWidth)*.5f*width,top),Size(width*nozzleWidth,height*.34f),CornerRadius(2f))
             val nozzle=Path().apply{moveTo(left+width*.27f,top+height*.28f);lineTo(left+width*.73f,top+height*.28f);lineTo(left+width*.92f,top+height*.86f);quadraticTo(cx,top+height*1.08f,left+width*.08f,top+height*.86f);close()}
             drawPath(nozzle,Brush.horizontalGradient(listOf(Color(0xFF171E2B),Color(0xFFBAC7D8),Color(0xFF354154),Color(0xFF0D1421)),left,left+width))
             drawPath(nozzle,edge,style=Stroke(1.5f))
             drawOval(Color(0xFF05070C),Offset(left+width*.22f,top+height*.72f),Size(width*.56f,height*.18f))
-            drawOval(if(part==PartType.VACUUM_ENGINE)Color(0xFF45D7FF) else if(part==PartType.HEAVY_ENGINE)Color(0xFFFF734A) else Color(0xFFFFA53F),Offset(left+width*.35f,top+height*.76f),Size(width*.30f,height*.10f))
-            drawLine(if(part==PartType.VACUUM_ENGINE)Color(0xFF9CF2FF) else Color(0xFFFFD27F),Offset(cx,top+height*.79f),Offset(cx,top+height*.90f),2f)
+            drawOval(if(part==PartType.VACUUM_ENGINE||part==PartType.ION_ENGINE)Color(0xFF45D7FF) else if(part==PartType.HEAVY_ENGINE)Color(0xFFFF734A) else Color(0xFFFFA53F),Offset(left+width*.35f,top+height*.76f),Size(width*.30f,height*.10f))
+            drawLine(if(part==PartType.VACUUM_ENGINE||part==PartType.ION_ENGINE)Color(0xFF9CF2FF) else Color(0xFFFFD27F),Offset(cx,top+height*.79f),Offset(cx,top+height*.90f),2f)
         }
         PartType.FIN->{
             val leftFin=Path().apply{moveTo(left+width*.18f,top+height*.25f);lineTo(left-width*.03f,top+height*.90f);lineTo(left+width*.32f,top+height*.79f);lineTo(left+width*.38f,top+height*.25f);close()}
