@@ -47,6 +47,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
+import org.json.JSONArray
+import org.json.JSONObject
 import kotlin.math.*
 
 private val Bg=Color(0xFF05060B)
@@ -171,6 +173,20 @@ class MainActivity:ComponentActivity(){
             PartType.TANK,PartType.TANK,PartType.ENGINE,PartType.ENGINE,PartType.ENGINE,PartType.ENGINE,PartType.FIN
         )
         val initialRocket=if(restoredParts.isEmpty()||restoredParts==previousDefaultRocket)starterRocket()else Rocket(restoredParts)
+        val savedBlueprints:Map<String,Rocket> = runCatching{
+            val json=JSONObject(preferences.getString("saved_blueprints","{}")?:"{}")
+            val restored=mutableMapOf<String,Rocket>()
+            val names=json.keys()
+            while(names.hasNext()){
+                val name=names.next()
+                val array=json.optJSONArray(name)?:continue
+                val parts=(0 until array.length()).mapNotNull{index->
+                    runCatching{PartType.valueOf(array.getString(index))}.getOrNull()
+                }
+                if(name.isNotBlank()&&parts.isNotEmpty())restored[name]=Rocket(parts)
+            }
+            restored.toMap()
+        }.getOrDefault(emptyMap())
         val defaults=CareerState()
         val initialCareer=CareerState(
             funds=preferences.getInt("career_funds",defaults.funds),
@@ -184,10 +200,18 @@ class MainActivity:ComponentActivity(){
             Box(Modifier.fillMaxSize().background(Bg).windowInsetsPadding(WindowInsets.safeDrawing)){
                 OrbitalFoundryApp(
                     initialRocket=initialRocket,
+                    initialBlueprints=savedBlueprints,
                     initialMissions=initialMissions,
                     initialCareer=initialCareer,
                     onTutorialComplete={preferences.edit().putBoolean("tutorial_seen",true).apply()},
                     onSaveRocket={rocket->preferences.edit().putString("rocket_parts",rocket.parts.joinToString(","){it.name}).apply()},
+                    onSaveBlueprints={blueprints->
+                        val json=JSONObject()
+                        blueprints.toSortedMap().forEach{(name,blueprint)->
+                            json.put(name,JSONArray(blueprint.parts.map{it.name}))
+                        }
+                        preferences.edit().putString("saved_blueprints",json.toString()).apply()
+                    },
                     onSaveMissions={missions->preferences.edit().putStringSet("flight_achievements",missions.toMutableSet()).apply()},
                     onSaveCareer={career->
                         preferences.edit()
@@ -247,10 +271,12 @@ private fun DrawScope.drawTexturedPlanet(
 @Composable
 fun OrbitalFoundryApp(
     initialRocket:Rocket,
+    initialBlueprints:Map<String,Rocket>,
     initialMissions:Set<String>,
     initialCareer:CareerState,
     onTutorialComplete:()->Unit,
     onSaveRocket:(Rocket)->Unit,
+    onSaveBlueprints:(Map<String,Rocket>)->Unit,
     onSaveMissions:(Set<String>)->Unit,
     onSaveCareer:(CareerState)->Unit
 ){
@@ -260,11 +286,13 @@ fun OrbitalFoundryApp(
     MaterialTheme(colorScheme=darkColorScheme(background=Bg,surface=Panel,primary=Color(0xFF3479B5),secondary=Cyan,onBackground=Ink,onSurface=Ink)){
         var screen by rememberSaveable{mutableStateOf(Screen.HOME)}
         var rocket by remember{mutableStateOf(initialRocket)}
+        var blueprints by remember{mutableStateOf(initialBlueprints)}
         var sim by remember{mutableStateOf<SimState?>(null)}
         var missions by remember{mutableStateOf(initialMissions)}
         var career by remember{mutableStateOf(initialCareer)}
         var sandboxMode by rememberSaveable{mutableStateOf(false)}
         LaunchedEffect(rocket){onSaveRocket(rocket)}
+        LaunchedEffect(blueprints){onSaveBlueprints(blueprints)}
         LaunchedEffect(missions){onSaveMissions(missions)}
         LaunchedEffect(career){onSaveCareer(career)}
         when(screen){
@@ -276,7 +304,11 @@ fun OrbitalFoundryApp(
                 {sandboxMode=true;screen=Screen.BUILD},
                 {if(rocket.hasDockingPort&&rocket.hasRcs){sim=beginDockingPractice(rocket);screen=Screen.FLIGHT}}
             )
-            Screen.BUILD->BuilderScreen(rocket,career.unlocked,sandboxMode,
+            Screen.BUILD->BuilderScreen(
+                rocket,career.unlocked,sandboxMode,blueprints,
+                {name->blueprints=blueprints+(name to rocket)},
+                {name->blueprints[name]?.let{rocket=it}},
+                {name->blueprints=blueprints-name},
                 {p->rocket=addPartInUsefulPosition(rocket,p)},
                 {part,index->rocket=insertPartAt(rocket,part,index)},
                 {rocket=addUpperStage(rocket)},
@@ -707,11 +739,14 @@ private fun DrawScope.drawRocketComponent(part:PartType,left:Float,top:Float,wid
 @Composable
 private fun BuilderScreen(
     rocket:Rocket,unlockedTech:Set<String>,sandboxMode:Boolean,
+    blueprints:Map<String,Rocket>,
+    onSaveBlueprint:(String)->Unit,onLoadBlueprint:(String)->Unit,onDeleteBlueprint:(String)->Unit,
     onAdd:(PartType)->Unit,onDrop:(PartType,Int)->Unit,onAddStage:()->Unit,
     onRemove:(Int)->Unit,onMove:(Int,Int)->Unit,onClear:()->Unit,onBack:()->Unit,onLaunch:()->Unit
 ){
     var showStack by rememberSaveable{mutableStateOf(false)}
     var showStageEditor by rememberSaveable{mutableStateOf(false)}
+    var showBlueprintLibrary by rememberSaveable{mutableStateOf(false)}
     val effectiveUnlocked=if(sandboxMode)CareerDatabase.tech.map{it.id}.toSet() else unlockedTech
     var rootBounds by remember{mutableStateOf<Rect?>(null)}
     var viewportBounds by remember{mutableStateOf<Rect?>(null)}
