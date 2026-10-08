@@ -1,8 +1,10 @@
-# Orbital Foundry
+# Orvitary — Orbital Foundry
 
 A native Android rocket-building and orbital-flight sandbox, using *Spaceflight Simulator* as the primary gameplay reference and Juno: New Origins as a reference for deeper engineering systems. All code and visual assets in this project are original.
 
 ## v0.5 — SFS-style play loop and builder interaction
+
+The repository branch is now dedicated to Orvitary. The legacy travel companion and mini-arcade projects have been removed from this branch.
 - Launch into the main menu rather than a mandatory tutorial; the short guide is optional.
 - Rebuilt the home screen with a calmer blue/steel palette and explicit Build, Sandbox, Quick Launch and Career/Tech Tree entry points.
 - Reworked the vehicle preview so rocket modules keep a consistent aspect ratio instead of being stretched across the screen.
