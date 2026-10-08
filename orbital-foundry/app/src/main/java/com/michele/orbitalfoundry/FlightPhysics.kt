@@ -227,7 +227,7 @@ fun stepPhysics(input: SimState, dtSeconds: Double, pitchDegrees: Double): SimSt
         while (angleDelta < -Math.PI) angleDelta += 2.0 * Math.PI
         val orbitProgress = when {
             !inStableOrbit -> 0.0
-            wasStableOrbit -> (s.orbitProgressRadians + angleDelta.coerceAtLeast(0.0)).coerceAtMost(2.0 * Math.PI)
+            wasStableOrbit -> (s.orbitProgressRadians + kotlin.math.abs(angleDelta)).coerceAtMost(2.0 * Math.PI)
             else -> 0.0
         }
         val completedOrbit = s.completedOrbit || orbitProgress >= 2.0 * Math.PI
