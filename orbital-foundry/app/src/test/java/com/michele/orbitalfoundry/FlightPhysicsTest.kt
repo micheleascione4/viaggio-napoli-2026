@@ -78,4 +78,5 @@ class FlightPhysicsTest {
         assertTrue(starter.fuel > 0.0)
         assertEquals(4, starter.parts.count { it == PartType.DECOUPLER } + 1)
     }
-}}
+}
+
