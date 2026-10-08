@@ -10,11 +10,13 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.foundation.border
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -137,14 +139,14 @@ class MainActivity:ComponentActivity(){
 fun OrbitalFoundryApp(showTutorialOnStart:Boolean,onTutorialComplete:()->Unit){
     MaterialTheme(colorScheme=darkColorScheme(background=Bg,surface=Panel,primary=Violet,onBackground=Ink,onSurface=Ink)){
         var screen by rememberSaveable{mutableStateOf(if(showTutorialOnStart)Screen.TUTORIAL else Screen.HOME)}
-        var rocket by rememberSaveable{mutableStateOf(Rocket(listOf(
+        var rocket by remember{mutableStateOf(Rocket(listOf(
             PartType.NOSE,PartType.CAPSULE,PartType.TANK,PartType.ENGINE,
             PartType.DECOUPLER,PartType.TANK,PartType.ENGINE,PartType.FIN,
             PartType.PARACHUTE,PartType.HEATSHIELD
         )))}
         var sim by remember{mutableStateOf<SimState?>(null)}
-        var missions by rememberSaveable{mutableStateOf(setOf<String>())}
-        var career by rememberSaveable{mutableStateOf(CareerState())}
+        var missions by remember{mutableStateOf(setOf<String>())}
+        var career by remember{mutableStateOf(CareerState())}
         when(screen){
             Screen.HOME->HomeScreen(rocket,missions,career,
                 {screen=Screen.BUILD},
@@ -208,48 +210,83 @@ private fun Shell(title:String,subtitle:String,onBack:()->Unit,content:@Composab
 }
 
 @Composable
-private fun HomeScreen(rocket:Rocket,missions:Set<String>,career:CareerState,onBuild:()->Unit,onLaunch:()->Unit,onMissions:()->Unit){
-    Column(Modifier.fillMaxSize().background(Bg).padding(18.dp)){
+private fun HomeScreen(
+    rocket:Rocket,missions:Set<String>,career:CareerState,
+    onBuild:()->Unit,onLaunch:()->Unit,onMissions:()->Unit,onTutorial:()->Unit,onDocking:()->Unit
+){
+    Column(Modifier.fillMaxSize().background(Bg).padding(horizontal=16.dp, vertical=12.dp)){
         Row(verticalAlignment=Alignment.CenterVertically){
             Column(Modifier.weight(1f)){
-                Text("ORBITAL",fontSize=42.sp,fontWeight=FontWeight.Black)
+                Text("ORBITAL",fontSize=38.sp,fontWeight=FontWeight.Black,lineHeight=38.sp)
                 Text("FOUNDRY",fontSize=18.sp,fontWeight=FontWeight.Bold,color=Violet)
-                Text("Build. Fly. Orbit. Return.",color=Muted)
+                Text("ROCKET ENGINEERING SIMULATOR",color=Muted,fontSize=11.sp,letterSpacing=1.sp)
             }
-            Box(Modifier.size(54.dp).background(Panel2,CircleShape),contentAlignment=Alignment.Center){Text("◉",fontSize=28.sp,color=Cyan)}
+            Box(Modifier.size(56.dp).background(Panel2,CircleShape),contentAlignment=Alignment.Center){
+                RocketPartThumbnail(PartType.ENGINE)
+            }
         }
-        Spacer(Modifier.height(18.dp))
-        Surface(color=Panel,shape=RoundedCornerShape(24.dp),modifier=Modifier.fillMaxWidth()){
-            Column(Modifier.padding(18.dp)){
-                Text("FLIGHT READY",color=Green,fontSize=12.sp,fontWeight=FontWeight.Black)
-                Text("Current vehicle",fontSize=22.sp,fontWeight=FontWeight.Black)
-                Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.padding(top=6.dp)){
+        Spacer(Modifier.height(12.dp))
+        Surface(color=Panel,shape=RoundedCornerShape(22.dp),modifier=Modifier.fillMaxWidth()){
+            Column(Modifier.padding(14.dp)){
+                Row(verticalAlignment=Alignment.CenterVertically){
+                    Column(Modifier.weight(1f)){
+                        Text("FLIGHT VEHICLE",color=Green,fontSize=11.sp,fontWeight=FontWeight.Black,letterSpacing=1.sp)
+                        Text(if(rocket.hasEngine&&rocket.hasCapsule)"Ready for launch" else "Complete the vehicle",fontSize=20.sp,fontWeight=FontWeight.Black)
+                    }
+                    Surface(color=Panel2,shape=RoundedCornerShape(12.dp)){
+                        Text("${rocket.parts.size} PARTS",modifier=Modifier.padding(horizontal=10.dp,vertical=7.dp),fontSize=11.sp,fontWeight=FontWeight.Bold,color=Cyan)
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+                Row(horizontalArrangement=Arrangement.spacedBy(7.dp),modifier=Modifier.fillMaxWidth()){
                     Metric("FUNDS","€${career.funds/1000}K",Modifier.weight(1f))
                     Metric("SCIENCE","${career.science}",Modifier.weight(1f))
                     Metric("TECH","${career.unlocked.size}",Modifier.weight(1f))
                 }
-                Spacer(Modifier.height(10.dp))
-                Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()){
-                    Metric("MASS","%.1f t".format(rocket.dryMass+rocket.fuel),Modifier.weight(1f))
-                    Metric("FUEL","%.1f t".format(rocket.fuel),Modifier.weight(1f))
-                    Metric("ΔV","%.0f m/s".format(rocket.deltaV),Modifier.weight(1f))
+                Spacer(Modifier.height(7.dp))
+                Row(horizontalArrangement=Arrangement.spacedBy(7.dp),modifier=Modifier.fillMaxWidth()){
+                    Metric("WET MASS","%.1f t".format(rocket.dryMass+rocket.fuel),Modifier.weight(1f))
+                    Metric("PROPELLANT","%.0f t".format(rocket.fuel),Modifier.weight(1f))
+                    Metric("TOTAL ΔV","%.2f km/s".format(rocket.deltaV),Modifier.weight(1f))
                 }
-                Spacer(Modifier.height(14.dp))
-                Button(onClick=onLaunch,enabled=rocket.hasEngine&&rocket.hasCapsule,modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(16.dp)){Text("LAUNCH MISSION",fontWeight=FontWeight.Black)}
-                OutlinedButton(onClick=onBuild,modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(16.dp)){Text("OPEN VEHICLE LAB")}
+                Spacer(Modifier.height(12.dp))
+                Button(onClick=onLaunch,enabled=rocket.hasEngine&&rocket.hasCapsule,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp),shape=RoundedCornerShape(14.dp)){
+                    Text("LAUNCH MISSION",fontWeight=FontWeight.Black,fontSize=14.sp)
+                }
+                OutlinedButton(onClick=onBuild,modifier=Modifier.fillMaxWidth().heightIn(min=46.dp),shape=RoundedCornerShape(14.dp)){
+                    Text("VEHICLE ASSEMBLY",fontWeight=FontWeight.Bold,fontSize=13.sp)
+                }
             }
         }
-        Spacer(Modifier.height(14.dp))
-        Row(horizontalArrangement=Arrangement.spacedBy(10.dp),modifier=Modifier.fillMaxWidth()){
-            ActionCard("🛰","VEHICLE LAB","Build custom stages",onBuild,Modifier.weight(1f))
-            ActionCard("◆","MISSIONS",missions.size.toString()+" completed",onMissions,Modifier.weight(1f))
+        Spacer(Modifier.height(10.dp))
+        Row(horizontalArrangement=Arrangement.spacedBy(9.dp),modifier=Modifier.fillMaxWidth()){
+            ActionCard("⌘","VEHICLE LAB","Parts · stages · ΔV",onBuild,Modifier.weight(1f))
+            ActionCard("◈","MISSIONS","${missions.size} objectives complete",onMissions,Modifier.weight(1f))
         }
-        Spacer(Modifier.height(14.dp))
-        Surface(color=Panel,shape=RoundedCornerShape(20.dp),modifier=Modifier.fillMaxWidth()){
-            Column(Modifier.padding(16.dp)){
-                Text("DESIGN GOAL",fontSize=12.sp,color=Muted,fontWeight=FontWeight.Black)
-                Text("FLIGHT HARDWARE · VISUAL PREVIEW",fontSize=18.sp,fontWeight=FontWeight.Bold,modifier=Modifier.padding(top=4.dp))
-                Text("Metallic parts, panel lines, mission telemetry, atmospheric glow and engine exhaust. Next: procedural textures, real staging and 3D surface terrain.",color=Muted,fontSize=13.sp,modifier=Modifier.padding(top=4.dp))
+        Spacer(Modifier.height(9.dp))
+        OutlinedButton(
+            onClick=onDocking, enabled=rocket.hasDockingPort&&rocket.hasRcs,
+            modifier=Modifier.fillMaxWidth().heightIn(min=46.dp),shape=RoundedCornerShape(14.dp)
+        ){
+            Text(if(rocket.hasDockingPort&&rocket.hasRcs)"OPEN ORBITAL DOCKING RANGE" else "DOCKING RANGE · ADD RCS + DOCKING PORT",fontSize=12.sp,fontWeight=FontWeight.Bold)
+        }
+        Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()){
+            OutlinedButton(onClick=onTutorial,modifier=Modifier.weight(1f).heightIn(min=42.dp),shape=RoundedCornerShape(12.dp)){
+                Text("FLIGHT TUTORIAL",fontSize=11.sp,fontWeight=FontWeight.Bold)
+            }
+            OutlinedButton(onClick=onMissions,modifier=Modifier.weight(1f).heightIn(min=42.dp),shape=RoundedCornerShape(12.dp)){
+                Text("CAREER / TECH TREE",fontSize=11.sp,fontWeight=FontWeight.Bold)
+            }
+        }
+        Spacer(Modifier.height(7.dp))
+        Surface(color=Panel2,shape=RoundedCornerShape(16.dp),modifier=Modifier.fillMaxWidth()){
+            Row(Modifier.padding(12.dp),verticalAlignment=Alignment.CenterVertically){
+                Text("●",color=Cyan,fontSize=13.sp)
+                Spacer(Modifier.width(9.dp))
+                Column{
+                    Text("FLIGHT COMPUTER",fontSize=11.sp,fontWeight=FontWeight.Black,letterSpacing=.8.sp)
+                    Text("Atmospheric drag · staged propellant · orbital elements · re-entry heating",fontSize=11.sp,color=Muted,lineHeight=15.sp)
+                }
             }
         }
     }
@@ -258,9 +295,9 @@ private fun HomeScreen(rocket:Rocket,missions:Set<String>,career:CareerState,onB
 @Composable
 private fun Metric(label:String,value:String,modifier:Modifier=Modifier){
     Surface(color=Panel2,shape=RoundedCornerShape(14.dp),modifier=modifier){
-        Column(Modifier.padding(10.dp),horizontalAlignment=Alignment.CenterHorizontally){
-            Text(label,color=Muted,fontSize=10.sp,fontWeight=FontWeight.Bold)
-            Text(value,fontSize=15.sp,fontWeight=FontWeight.Black)
+        Column(Modifier.padding(horizontal=7.dp, vertical=9.dp),horizontalAlignment=Alignment.CenterHorizontally){
+            Text(label,color=Muted,fontSize=10.sp,fontWeight=FontWeight.Bold,lineHeight=12.sp)
+            Text(value,fontSize=14.sp,fontWeight=FontWeight.Black,lineHeight=17.sp)
         }
     }
 }
@@ -382,7 +419,7 @@ private fun DrawScope.drawRocketComponent(part:PartType,left:Float,top:Float,wid
 }
 
 @Composable
-private fun BuilderScreen(rocket:Rocket,onAdd:(PartType)->Unit,onRemove:(PartType)->Unit,onClear:()->Unit,onBack:()->Unit,onLaunch:()->Unit){
+private fun BuilderScreen(rocket:Rocket,onAdd:(PartType)->Unit,onRemove:(PartType)->Unit,onMove:(Int,Int)->Unit,onClear:()->Unit,onBack:()->Unit,onLaunch:()->Unit){
     Shell("Vehicle Lab","Tap parts to add · stack them into a launcher",onBack){
         Row(verticalAlignment=Alignment.Top,modifier=Modifier.fillMaxWidth()){
             Surface(color=Panel,shape=RoundedCornerShape(20.dp),modifier=Modifier.weight(1f).height(420.dp)){
@@ -392,15 +429,16 @@ private fun BuilderScreen(rocket:Rocket,onAdd:(PartType)->Unit,onRemove:(PartTyp
                 }
             }
             Spacer(Modifier.width(10.dp))
-            Column(Modifier.width(145.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
-                PartType.entries.forEach{p->
-                    Surface(color=Panel2,shape=RoundedCornerShape(14.dp),modifier=Modifier.fillMaxWidth().clickable{onAdd(p)}){
-                        Row(Modifier.padding(6.dp),verticalAlignment=Alignment.CenterVertically){
+            LazyColumn(Modifier.width(148.dp).height(420.dp),verticalArrangement=Arrangement.spacedBy(5.dp)){
+                items(PartType.entries.toList()){p->
+                    Surface(color=Panel2,shape=RoundedCornerShape(12.dp),modifier=Modifier.fillMaxWidth().clickable{onAdd(p)}){
+                        Row(Modifier.padding(5.dp),verticalAlignment=Alignment.CenterVertically){
                             RocketPartThumbnail(p)
                             Spacer(Modifier.width(5.dp))
                             Column(Modifier.weight(1f)){
-                                Text(p.title,fontWeight=FontWeight.Bold,fontSize=11.sp,lineHeight=12.sp)
-                                Text("M %.1f · F %.0f".format(p.mass,p.fuel),fontSize=8.sp,color=Muted)
+                                Text(p.title,fontWeight=FontWeight.Bold,fontSize=11.sp,lineHeight=13.sp)
+                                Text("M %.1f t · F %.0f t".format(p.mass,p.fuel),fontSize=9.sp,color=Muted,lineHeight=11.sp)
+                                if(p.thrust>0)Text("%.0f kN · Isp %.0f s".format(p.thrust,p.ispSec),fontSize=9.sp,color=Orange,lineHeight=11.sp)
                             }
                         }
                     }
@@ -416,14 +454,75 @@ private fun BuilderScreen(rocket:Rocket,onAdd:(PartType)->Unit,onRemove:(PartTyp
         Spacer(Modifier.height(8.dp))
         Text("STACK",color=Muted,fontSize=11.sp,fontWeight=FontWeight.Black)
         LazyColumn(verticalArrangement=Arrangement.spacedBy(6.dp),modifier=Modifier.weight(1f)){
-            items(rocket.parts.asReversed()){p->
+            itemsIndexed(rocket.parts.asReversed()){visualIndex,p->
+                val originalIndex=rocket.parts.lastIndex-visualIndex
                 Surface(color=Panel,shape=RoundedCornerShape(12.dp),modifier=Modifier.fillMaxWidth()){
-                    Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.padding(horizontal=12.dp,vertical=8.dp)){
+                    Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.padding(horizontal=8.dp,vertical=5.dp)){
                         RocketPartThumbnail(p)
-                        Column(Modifier.weight(1f).padding(start=8.dp)){Text(p.title,fontWeight=FontWeight.Bold,fontSize=13.sp);Text("mass %.1f · fuel %.1f · thrust %.0f".format(p.mass,p.fuel,p.thrust),color=Muted,fontSize=9.sp)}
-                        Text("−",fontSize=22.sp,color=Red,modifier=Modifier.clickable{onRemove(p)})
+                        Column(Modifier.weight(1f).padding(start=7.dp)){
+                            Text(p.title,fontWeight=FontWeight.Bold,fontSize=12.sp,lineHeight=14.sp)
+                            Text("M %.1f · F %.1f · T %.0f".format(p.mass,p.fuel,p.thrust),color=Muted,fontSize=10.sp,lineHeight=12.sp)
+                        }
+                        Column(horizontalAlignment=Alignment.CenterHorizontally){
+                            Text("↑",fontSize=18.sp,color=Cyan,modifier=Modifier.clickable{onMove(originalIndex,1)}.padding(horizontal=5.dp))
+                            Text("↓",fontSize=18.sp,color=Cyan,modifier=Modifier.clickable{onMove(originalIndex,-1)}.padding(horizontal=5.dp))
+                        }
+                        Text("×",fontSize=20.sp,color=Red,modifier=Modifier.clickable{onRemove(p)}.padding(horizontal=5.dp))
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TutorialScreen(onFinish:()->Unit,onSkip:()->Unit){
+    var page by rememberSaveable{mutableIntStateOf(0)}
+    val lessons=listOf(
+        Triple("01 / BUILD THE STACK","The editor stores the rocket top-to-bottom. The bottom stage is the section below a decoupler. Use ↑ and ↓ to reorder parts; add a tank and an engine for each extra stage.","Start with a capsule, heat shield, parachute, fuel tanks, engines and at least one decoupler."),
+        Triple("02 / CHECK THE ENGINEERING","Wet mass includes structure plus every tank. Thrust-to-weight ratio must be above 1.0 to lift off; around 1.3–1.8 is a useful starting point. ΔV is estimated stage by stage using engine Isp.","The model uses kilometres, seconds, tonnes and kilonewtons consistently. Atmospheric drag grows quickly at low altitude."),
+        Triple("03 / FLY TO ORBIT","Launch vertically, then use P− to tip toward the horizon. PRO points along velocity; RET points against it. Watch apoapsis and periapsis: a stable orbit needs both above the atmosphere.","Use throttle to manage acceleration and dynamic pressure. Press STAGE only when the active stage is ready to separate."),
+        Triple("04 / RE-ENTRY & RECOVERY","Use the heat shield on the capsule. The parachute is intended for low altitude and low speed; deploying it too early at orbital speed can destroy the vehicle.","Thermal load and maximum dynamic pressure are shown by the flight computer. Landing below the safe speed completes recovery."),
+        Triple("05 / DOCKING","Add both RCS Thrusters and a Docking Port, then open the Docking Range from the home screen. The training craft starts in a circular 200 km orbit.","Tap APPROACH once to add a small relative velocity. Tap MATCH V near the target to stop relative drift; press DOCK only within 5 m and below 0.5 m/s.")
+    )
+    val lesson=lessons[page]
+    Column(Modifier.fillMaxSize().background(Bg).padding(horizontal=18.dp,vertical=14.dp)){
+        Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.fillMaxWidth()){
+            Column(Modifier.weight(1f)){
+                Text("FLIGHT SCHOOL",fontSize=12.sp,color=Cyan,fontWeight=FontWeight.Black,letterSpacing=1.5.sp)
+                Text("Learn to fly",fontSize=30.sp,fontWeight=FontWeight.Black)
+            }
+            Text("${page+1} / ${lessons.size}",fontSize=13.sp,color=Muted,fontWeight=FontWeight.Bold)
+        }
+        Spacer(Modifier.height(14.dp))
+        Surface(color=Panel,shape=RoundedCornerShape(24.dp),modifier=Modifier.fillMaxWidth().weight(1f)){
+            Column(Modifier.padding(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
+                Surface(color=Panel2,shape=RoundedCornerShape(16.dp),modifier=Modifier.fillMaxWidth()){
+                    Box(Modifier.height(132.dp).fillMaxWidth(),contentAlignment=Alignment.Center){
+                        RocketStackPreview(Rocket(listOf(PartType.NOSE,PartType.CAPSULE,PartType.TANK,PartType.ENGINE,PartType.DECOUPLER,PartType.TANK,PartType.ENGINE,PartType.FIN)))
+                    }
+                }
+                Text(lesson.first,fontSize=12.sp,color=Violet,fontWeight=FontWeight.Black,letterSpacing=1.sp)
+                Text(lesson.second,fontSize=17.sp,lineHeight=24.sp,fontWeight=FontWeight.SemiBold)
+                Text(lesson.third,fontSize=14.sp,lineHeight=21.sp,color=Muted)
+                Spacer(Modifier.weight(1f))
+                Row(horizontalArrangement=Arrangement.spacedBy(5.dp),modifier=Modifier.fillMaxWidth()){
+                    lessons.indices.forEach{idx->
+                        Box(Modifier.weight(1f).height(4.dp).background(if(idx<=page)Cyan else Panel2,RoundedCornerShape(4.dp)))
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()){
+            OutlinedButton(onClick=onSkip,modifier=Modifier.weight(1f).heightIn(min=48.dp),shape=RoundedCornerShape(14.dp)){
+                Text("SKIP",fontWeight=FontWeight.Bold)
+            }
+            if(page>0) OutlinedButton(onClick={page--},modifier=Modifier.weight(1f).heightIn(min=48.dp),shape=RoundedCornerShape(14.dp)){
+                Text("BACK",fontWeight=FontWeight.Bold)
+            }
+            Button(onClick={if(page==lessons.lastIndex)onFinish() else page++},modifier=Modifier.weight(1.4f).heightIn(min=48.dp),shape=RoundedCornerShape(14.dp)){
+                Text(if(page==lessons.lastIndex)"START FLIGHT" else "NEXT",fontWeight=FontWeight.Black)
             }
         }
     }
