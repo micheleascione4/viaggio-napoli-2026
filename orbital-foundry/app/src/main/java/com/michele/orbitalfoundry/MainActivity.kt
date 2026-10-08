@@ -245,23 +245,41 @@ private fun BuilderScreen(rocket:Rocket,onAdd:(PartType)->Unit,onRemove:(PartTyp
 
 @Composable
 private fun MissionScreen(missions:Set<String>,career:CareerState,onCareer:(CareerState)->Unit,onBack:()->Unit){
-    val all=listOf(
-        Triple("Reach 100 km","Suborbital hop · prove the vehicle",Green),
-        Triple("Stable Orbit","Complete a closed Earth orbit",Cyan),
-        Triple("Moonshot","Cross lunar sphere of influence",Violet),
-        Triple("Soft Landing","Touch down below 2 m/s",Orange),
-        Triple("Return Home","Re-enter and survive",Red)
-    )
-    Shell("Mission Control","Contracts reward precision, not chaos",onBack){
+    Shell("Mission Control","Contracts · rewards · technology progression",onBack){
         LazyColumn(verticalArrangement=Arrangement.spacedBy(10.dp)){
-            items(all){m->
-                val contract=CareerDatabase.contracts.firstOrNull{it.title==m.first}; val done=m.first in missions || contract?.id in career.completedContracts
+            items(CareerDatabase.contracts){contract->
+                val done=contract.id in career.completedContracts
+                val available=canAccept(contract,career)
                 Surface(color=Panel,shape=RoundedCornerShape(18.dp),modifier=Modifier.fillMaxWidth()){
-                    Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.padding(16.dp)){
-                        Text(if(done)"✓" else "○",fontSize=28.sp,color=if(done)Green else m.third)
-                        Column(Modifier.weight(1f).padding(start=12.dp)){Text(m.first,fontWeight=FontWeight.Black);Text(m.second,color=Muted,fontSize=12.sp)}
-                        if(done)Text("DONE",color=Green,fontSize=10.sp,fontWeight=FontWeight.Black)
-                        else if(contract!=null) Button(onClick={onCareer(completeContract(contract,career))},enabled=canAccept(contract,career)){Text("ACCEPT",fontSize=9.sp)}
+                    Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.padding(14.dp)){
+                        Column(Modifier.weight(1f)){
+                            Row(verticalAlignment=Alignment.CenterVertically){
+                                Text(if(done)"✓" else "○",fontSize=24.sp,color=if(done)Green else Cyan)
+                                Text(contract.title,fontWeight=FontWeight.Black,fontSize=16.sp,modifier=Modifier.padding(start=10.dp))
+                            }
+                            Text(contract.description,color=Muted,fontSize=11.sp,modifier=Modifier.padding(start=34.dp,top=3.dp))
+                            Text("€${contract.reward/1000}K  ·  ${contract.science} SCI",color=Orange,fontSize=10.sp,fontWeight=FontWeight.Bold,modifier=Modifier.padding(start=34.dp,top=5.dp))
+                        }
+                        if(done) Text("DONE",color=Green,fontSize=9.sp,fontWeight=FontWeight.Black)
+                        else Button(onClick={onCareer(completeContract(contract,career))},enabled=available){Text(if(available)"CLAIM" else "LOCK",fontSize=9.sp)}
+                    }
+                }
+            }
+            item{
+                Spacer(Modifier.height(4.dp))
+                Text("TECH TREE",fontWeight=FontWeight.Black,fontSize=12.sp,color=Muted)
+            }
+            items(CareerDatabase.tech){tech->
+                val unlocked=tech.id in career.unlocked
+                val upgrade=unlockTech(tech,career)
+                Surface(color=if(unlocked)Panel2 else Panel,shape=RoundedCornerShape(16.dp),modifier=Modifier.fillMaxWidth()){
+                    Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.padding(14.dp)){
+                        Text(if(unlocked)"◆" else "◇",color=if(unlocked)Green else Violet,fontSize=22.sp)
+                        Column(Modifier.weight(1f).padding(start=10.dp)){
+                            Text(tech.title,fontWeight=FontWeight.Bold)
+                            Text(if(unlocked)"UNLOCKED" else "€${tech.cost/1000}K · ${tech.science} SCI",color=Muted,fontSize=10.sp)
+                        }
+                        if(!unlocked) Button(onClick={upgrade?.let(onCareer)},enabled=upgrade!=null){Text("UNLOCK",fontSize=9.sp)}
                     }
                 }
             }
