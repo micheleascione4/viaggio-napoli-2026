@@ -195,6 +195,14 @@ private fun ActionCard(icon:String,title:String,sub:String,onClick:()->Unit,modi
 }
 
 @Composable
+private fun RocketPartThumbnail(part:PartType){
+    Canvas(Modifier.size(width=38.dp,height=42.dp)){
+        drawRoundRect(Color(0xFF0A0F1A),Offset(0f,0f),Size(size.width,size.height),CornerRadius(5f))
+        drawRocketComponent(part,size.width*.18f,size.height*.08f,size.width*.64f,size.height*.82f)
+    }
+}
+
+@Composable
 private fun RocketStackPreview(rocket:Rocket){
     Canvas(Modifier.fillMaxSize()){
         drawRect(Brush.verticalGradient(listOf(Color(0xFF10192B),Color(0xFF070A13))),size=Size(size.width,size.height))
@@ -305,9 +313,13 @@ private fun BuilderScreen(rocket:Rocket,onAdd:(PartType)->Unit,onRemove:(PartTyp
             Column(Modifier.width(145.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
                 PartType.entries.forEach{p->
                     Surface(color=Panel2,shape=RoundedCornerShape(14.dp),modifier=Modifier.fillMaxWidth().clickable{onAdd(p)}){
-                        Column(Modifier.padding(9.dp)){
-                            Text(p.emoji+"  "+p.title,fontWeight=FontWeight.Bold,fontSize=12.sp)
-                            Text("mass %.1f".format(p.mass),fontSize=9.sp,color=Muted)
+                        Row(Modifier.padding(6.dp),verticalAlignment=Alignment.CenterVertically){
+                            RocketPartThumbnail(p)
+                            Spacer(Modifier.width(5.dp))
+                            Column(Modifier.weight(1f)){
+                                Text(p.title,fontWeight=FontWeight.Bold,fontSize=11.sp,lineHeight=12.sp)
+                                Text("M %.1f · F %.0f".format(p.mass,p.fuel),fontSize=8.sp,color=Muted)
+                            }
                         }
                     }
                 }
@@ -325,7 +337,7 @@ private fun BuilderScreen(rocket:Rocket,onAdd:(PartType)->Unit,onRemove:(PartTyp
             items(rocket.parts.asReversed()){p->
                 Surface(color=Panel,shape=RoundedCornerShape(12.dp),modifier=Modifier.fillMaxWidth()){
                     Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.padding(horizontal=12.dp,vertical=8.dp)){
-                        Text(p.emoji,color=p.color,fontSize=18.sp)
+                        RocketPartThumbnail(p)
                         Column(Modifier.weight(1f).padding(start=8.dp)){Text(p.title,fontWeight=FontWeight.Bold,fontSize=13.sp);Text("mass %.1f · fuel %.1f · thrust %.0f".format(p.mass,p.fuel,p.thrust),color=Muted,fontSize=9.sp)}
                         Text("−",fontSize=22.sp,color=Red,modifier=Modifier.clickable{onRemove(p)})
                     }
