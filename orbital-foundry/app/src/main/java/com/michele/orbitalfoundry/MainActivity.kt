@@ -1,6 +1,8 @@
 package com.michele.orbitalfoundry
 
 import android.os.Bundle
+import android.content.Context
+import android.graphics.BitmapFactory
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Canvas
@@ -10,6 +12,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -24,6 +28,13 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -179,6 +190,46 @@ class MainActivity:ComponentActivity(){
     }
 }
 
+private fun loadPlanetTexture(context:Context,name:String):ImageBitmap? =
+    runCatching{
+        context.assets.open("textures/$name").use{stream->
+            BitmapFactory.decodeStream(stream)?.asImageBitmap()
+        }
+    }.getOrNull()
+
+private fun DrawScope.drawTexturedPlanet(
+    texture:ImageBitmap?,center:Offset,radius:Float,
+    fallback:List<Color>
+){
+    if(radius<=1f)return
+    drawCircle(Brush.radialGradient(fallback,Offset(center.x-radius*.32f,center.y-radius*.32f),radius*1.9f),radius,center)
+    if(texture!=null){
+        val planetPath=Path().apply{addOval(androidx.compose.ui.geometry.Rect(center.x-radius,center.y-radius,center.x+radius,center.y+radius))}
+        val dstOffset=IntOffset((center.x-radius).roundToInt(),(center.y-radius).roundToInt())
+        val dstSize=IntSize((radius*2f).roundToInt().coerceAtLeast(1),(radius*2f).roundToInt().coerceAtLeast(1))
+        clipPath(planetPath){
+            drawImage(
+                image=texture,
+                srcOffset=IntOffset(texture.width/4,0),
+                srcSize=IntSize((texture.width/2).coerceAtLeast(1),texture.height),
+                dstOffset=dstOffset,
+                dstSize=dstSize,
+                filterQuality=FilterQuality.High
+            )
+            drawCircle(
+                Brush.radialGradient(
+                    colors=listOf(Color.Transparent,Color(0x66030A20)),
+                    center=Offset(center.x+radius*.52f,center.y+radius*.12f),
+                    radius=radius*1.18f
+                ),
+                radius,
+                center
+            )
+        }
+    }
+    drawCircle(Color(0x664BC3FF),radius,center,style=Stroke(width=max(1.2f,radius*.018f)))
+}
+
 @Composable
 fun OrbitalFoundryApp(
     showTutorialOnStart:Boolean,
@@ -190,24 +241,29 @@ fun OrbitalFoundryApp(
     onSaveMissions:(Set<String>)->Unit,
     onSaveCareer:(CareerState)->Unit
 ){
+    val context=LocalContext.current
+    val earthTexture=remember{loadPlanetTexture(context,"earth.png")}
+    val marsTexture=remember{loadPlanetTexture(context,"mars.jpg")}
     MaterialTheme(colorScheme=darkColorScheme(background=Bg,surface=Panel,primary=Violet,onBackground=Ink,onSurface=Ink)){
         var screen by rememberSaveable{mutableStateOf(if(showTutorialOnStart)Screen.TUTORIAL else Screen.HOME)}
         var rocket by remember{mutableStateOf(initialRocket)}
         var sim by remember{mutableStateOf<SimState?>(null)}
         var missions by remember{mutableStateOf(initialMissions)}
         var career by remember{mutableStateOf(initialCareer)}
+        var sandboxMode by rememberSaveable{mutableStateOf(false)}
         LaunchedEffect(rocket){onSaveRocket(rocket)}
         LaunchedEffect(missions){onSaveMissions(missions)}
         LaunchedEffect(career){onSaveCareer(career)}
         when(screen){
             Screen.HOME->HomeScreen(rocket,missions,career,
-                {screen=Screen.BUILD},
+                {sandboxMode=false;screen=Screen.BUILD},
                 {if(rocket.hasEngine&&rocket.hasCapsule){sim=launchState(rocket);screen=Screen.FLIGHT}},
                 {screen=Screen.MISSIONS},
                 {screen=Screen.TUTORIAL},
+                {sandboxMode=true;screen=Screen.BUILD},
                 {if(rocket.hasDockingPort&&rocket.hasRcs){sim=beginDockingPractice(rocket);screen=Screen.FLIGHT}}
             )
-            Screen.BUILD->BuilderScreen(rocket,career.unlocked,
+            Screen.BUILD->BuilderScreen(rocket,career.unlocked,sandboxMode,
                 {p->rocket=addPartInUsefulPosition(rocket,p)},
                 {rocket=addUpperStage(rocket)},
                 {index->val l=rocket.parts.toMutableList();if(index in l.indices)l.removeAt(index);rocket=rocket.copy(parts=l)},
@@ -221,12 +277,12 @@ fun OrbitalFoundryApp(
                 {if(rocket.hasEngine&&rocket.hasCapsule){sim=launchState(rocket);screen=Screen.FLIGHT}}
             )
             Screen.MISSIONS->MissionScreen(missions,career,{career=it},{screen=Screen.HOME})
-            Screen.FLIGHT->{val s=sim;if(s!=null)FlightScreen(s,
+            Screen.FLIGHT->{val s=sim;if(s!=null)FlightScreen(s,earthTexture,marsTexture,
                 {next->sim=next;missions=missions+missionCompletions(next)},
                 {screen=Screen.MAP},{screen=Screen.HOME},
                 {name->missions=missions+name}
             )}
-            Screen.MAP->{val s=sim;if(s!=null)MapScreen(s,{screen=Screen.FLIGHT})}
+            Screen.MAP->{val s=sim;if(s!=null)MapScreen(s,earthTexture,marsTexture,{screen=Screen.FLIGHT})}
             Screen.TUTORIAL->TutorialScreen({onTutorialComplete();screen=Screen.HOME},{onTutorialComplete();screen=Screen.HOME})
         }
     }
