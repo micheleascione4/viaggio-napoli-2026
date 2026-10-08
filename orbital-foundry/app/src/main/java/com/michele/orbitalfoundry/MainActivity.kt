@@ -49,10 +49,13 @@ enum class PartType(
     val color:Color,val ispSec:Double=0.0
 ){
     NOSE("Nose Cone","◢",1.5,0.0,0.0,Violet),
+    FAIRING("Payload Fairing","△",0.9,0.0,0.0,Color(0xFF9A7BFF)),
     CAPSULE("Crew Capsule","◉",3.5,0.0,0.0,Cyan),
     PROBE_CORE("Probe Core","◈",0.8,0.0,0.0,Color(0xFF8AD4FF)),
     TANK("Fuel Tank","▣",4.0,24.0,0.0,Color(0xFF6C7BFF)),
-    ENGINE("Vector Engine","▲",3.2,0.0,1250.0,Orange,360.0),
+    ENGINE("Vector Engine","▲",3.2,0.0,1250.0,Orange,330.0),
+    VACUUM_ENGINE("Vector Vacuum Engine","▲",3.2,0.0,1250.0,Cyan,500.0),
+    HEAVY_ENGINE("Heavy Lift Engine","▼",8.5,0.0,4000.0,Color(0xFFFF875A),330.0),
     DECOUPLER("Stage Decoupler","⊙",0.8,0.0,0.0,Red),
     FIN("Control Fins","⌁",1.0,0.0,0.0,Green),
     PARACHUTE("Recovery Parachute","⬙",1.2,0.0,0.0,Color(0xFFFF7D90)),
@@ -141,7 +144,10 @@ fun OrbitalFoundryApp(showTutorialOnStart:Boolean,onTutorialComplete:()->Unit){
         var screen by rememberSaveable{mutableStateOf(if(showTutorialOnStart)Screen.TUTORIAL else Screen.HOME)}
         var rocket by remember{mutableStateOf(Rocket(listOf(
             PartType.NOSE,PartType.CAPSULE,PartType.HEATSHIELD,PartType.PARACHUTE,
-            PartType.TANK,PartType.ENGINE,PartType.DECOUPLER,PartType.TANK,PartType.ENGINE,PartType.FIN
+            PartType.TANK,PartType.TANK,PartType.VACUUM_ENGINE,PartType.DECOUPLER,
+            PartType.TANK,PartType.TANK,PartType.VACUUM_ENGINE,PartType.DECOUPLER,
+            PartType.TANK,PartType.TANK,PartType.VACUUM_ENGINE,PartType.DECOUPLER,
+            PartType.TANK,PartType.TANK,PartType.ENGINE,PartType.ENGINE,PartType.ENGINE,PartType.FIN
         )))}
         var sim by remember{mutableStateOf<SimState?>(null)}
         var missions by remember{mutableStateOf(setOf<String>())}
@@ -154,7 +160,7 @@ fun OrbitalFoundryApp(showTutorialOnStart:Boolean,onTutorialComplete:()->Unit){
                 {screen=Screen.TUTORIAL},
                 {if(rocket.hasDockingPort&&rocket.hasRcs){sim=beginDockingPractice(rocket);screen=Screen.FLIGHT}}
             )
-            Screen.BUILD->BuilderScreen(rocket,
+            Screen.BUILD->BuilderScreen(rocket,career.unlocked,
                 {p->rocket=addPartInUsefulPosition(rocket,p)},
                 {rocket=addUpperStage(rocket)},
                 {index->val l=rocket.parts.toMutableList();if(index in l.indices)l.removeAt(index);rocket=rocket.copy(parts=l)},
@@ -179,11 +185,28 @@ fun OrbitalFoundryApp(showTutorialOnStart:Boolean,onTutorialComplete:()->Unit){
     }
 }
 
+private fun requiredTech(part:PartType):String?=when(part){
+    PartType.NOSE->null
+    PartType.CAPSULE,PartType.PARACHUTE,PartType.HEATSHIELD->"capsule"
+    PartType.TANK->"small_tank"
+    PartType.ENGINE,PartType.DECOUPLER,PartType.FIN->"starter_engine"
+    PartType.VACUUM_ENGINE->"vacuum"
+    PartType.HEAVY_ENGINE->"heavy"
+    PartType.FAIRING,PartType.PROBE_CORE->"fairing"
+    PartType.LANDING_LEGS->"landing"
+    PartType.RCS->"rcs"
+    PartType.DOCKING_PORT->"docking"
+    PartType.SOLAR->"solar"
+}
+
+private fun isPartUnlocked(part:PartType,unlocked:Set<String>):Boolean =
+    requiredTech(part)?.let{it in unlocked} ?: true
+
 private fun addPartInUsefulPosition(rocket:Rocket,part:PartType):Rocket{
     val list=rocket.parts.toMutableList()
     when(part){
         PartType.DECOUPLER->{ return addUpperStage(rocket) }
-        PartType.TANK,PartType.ENGINE,PartType.FIN->list.add(part)
+        PartType.TANK,PartType.ENGINE,PartType.VACUUM_ENGINE,PartType.HEAVY_ENGINE,PartType.FIN->list.add(part)
         PartType.DOCKING_PORT,PartType.RCS,PartType.PROBE_CORE,PartType.SOLAR,PartType.PARACHUTE,PartType.HEATSHIELD,PartType.LANDING_LEGS->{
             val firstTank=list.indexOfFirst{it==PartType.TANK}
             val insertAt=if(firstTank>=0)firstTank else list.size
@@ -206,7 +229,7 @@ private fun addUpperStage(rocket:Rocket):Rocket{
         firstEngine>=0->firstEngine
         else->list.size
     }
-    list.addAll(at,listOf(PartType.TANK,PartType.ENGINE,PartType.DECOUPLER))
+    list.addAll(at,listOf(PartType.TANK,PartType.TANK,PartType.VACUUM_ENGINE,PartType.DECOUPLER))
     return rocket.copy(parts=list)
 }
 
@@ -343,7 +366,7 @@ private fun RocketStackPreview(rocket:Rocket){
         val halo=Offset(size.width*.5f,size.height*.56f)
         drawCircle(Brush.radialGradient(listOf(Color(0x443E8BFF),Color(0x113E8BFF),Color.Transparent),halo,size.minDimension*.58f),size.minDimension*.58f,halo)
         val count=rocket.parts.size.coerceAtLeast(1)
-        val partH=min(38f,(size.height-104f)/count).coerceAtLeast(18f)
+        val partH=min(38f,(size.height-104f)/count).coerceIn(10f,38f)
         val partGap=2f
         val partW=size.width*.36f
         val left=(size.width-partW)*.5f
@@ -377,6 +400,19 @@ private fun DrawScope.drawRocketComponent(part:PartType,left:Float,top:Float,wid
             drawLine(Color(0xFFFFD28A),Offset(cx,top+height*.17f),Offset(cx,top+height*.70f),1.5f)
             drawRoundRect(Color(0xFF111B2A),Offset(cx-width*.18f,top+height*.50f),Size(width*.36f,height*.12f),CornerRadius(3f))
         }
+        PartType.FAIRING->{
+            val fairing=Path().apply{
+                moveTo(cx,top)
+                cubicTo(left+width*.95f,top+height*.16f,left+width*.90f,top+height*.68f,left+width*.82f,top+height*.88f)
+                lineTo(left+width*.18f,top+height*.88f)
+                cubicTo(left+width*.10f,top+height*.68f,left+width*.05f,top+height*.16f,cx,top)
+                close()
+            }
+            drawPath(fairing,Brush.horizontalGradient(listOf(Color(0xFF353D51),Color(0xFFF5F7FD),Color(0xFFBCAFFF),Color(0xFF303849)),left,left+width))
+            drawPath(fairing,edge,style=Stroke(1.5f))
+            drawLine(Color(0xFF45D7FF),Offset(cx,top+height*.16f),Offset(cx,top+height*.78f),1.2f)
+            drawRoundRect(Color(0xFF101726),Offset(left+width*.20f,top+height*.72f),Size(width*.60f,height*.12f),CornerRadius(2f))
+        }
         PartType.CAPSULE->{
             val p=Path().apply{moveTo(cx,top);cubicTo(left+width*.86f,top+height*.05f,left+width*.94f,top+height*.24f,left+width*.88f,top+height*.50f);lineTo(left+width*.84f,top+height*.92f);lineTo(left+width*.16f,top+height*.92f);lineTo(left+width*.12f,top+height*.50f);cubicTo(left+width*.06f,top+height*.24f,left+width*.14f,top+height*.05f,cx,top);close()}
             drawPath(p,metal);drawPath(p,edge,style=Stroke(1.6f))
@@ -395,14 +431,15 @@ private fun DrawScope.drawRocketComponent(part:PartType,left:Float,top:Float,wid
             drawRoundRect(Color(0xFFD8E4EF),Offset(left+width*.41f,top+height*.19f),Size(width*.18f,height*.46f),CornerRadius(2f))
             drawLine(Color(0xFFFFC46E),Offset(left+width*.20f,top+height*.69f),Offset(left+width*.80f,top+height*.69f),2f)
         }
-        PartType.ENGINE->{
-            drawRoundRect(metal,Offset(left+width*.20f,top),Size(width*.60f,height*.34f),CornerRadius(2f))
+        PartType.ENGINE,PartType.VACUUM_ENGINE,PartType.HEAVY_ENGINE->{
+            val nozzleWidth=if(part==PartType.HEAVY_ENGINE).78f else .60f
+            drawRoundRect(metal,Offset(left+(1f-nozzleWidth)*.5f*width,top),Size(width*nozzleWidth,height*.34f),CornerRadius(2f))
             val nozzle=Path().apply{moveTo(left+width*.27f,top+height*.28f);lineTo(left+width*.73f,top+height*.28f);lineTo(left+width*.92f,top+height*.86f);quadraticTo(cx,top+height*1.08f,left+width*.08f,top+height*.86f);close()}
             drawPath(nozzle,Brush.horizontalGradient(listOf(Color(0xFF171E2B),Color(0xFFBAC7D8),Color(0xFF354154),Color(0xFF0D1421)),left,left+width))
             drawPath(nozzle,edge,style=Stroke(1.5f))
             drawOval(Color(0xFF05070C),Offset(left+width*.22f,top+height*.72f),Size(width*.56f,height*.18f))
-            drawOval(Color(0xFFFFA53F),Offset(left+width*.35f,top+height*.76f),Size(width*.30f,height*.10f))
-            drawLine(Color(0xFFFFD27F),Offset(cx,top+height*.79f),Offset(cx,top+height*.90f),2f)
+            drawOval(if(part==PartType.VACUUM_ENGINE)Color(0xFF45D7FF) else if(part==PartType.HEAVY_ENGINE)Color(0xFFFF734A) else Color(0xFFFFA53F),Offset(left+width*.35f,top+height*.76f),Size(width*.30f,height*.10f))
+            drawLine(if(part==PartType.VACUUM_ENGINE)Color(0xFF9CF2FF) else Color(0xFFFFD27F),Offset(cx,top+height*.79f),Offset(cx,top+height*.90f),2f)
         }
         PartType.FIN->{
             val leftFin=Path().apply{moveTo(left+width*.18f,top+height*.25f);lineTo(left-width*.03f,top+height*.90f);lineTo(left+width*.32f,top+height*.79f);lineTo(left+width*.38f,top+height*.25f);close()}
@@ -473,7 +510,7 @@ private fun DrawScope.drawRocketComponent(part:PartType,left:Float,top:Float,wid
 }
 
 @Composable
-private fun BuilderScreen(rocket:Rocket,onAdd:(PartType)->Unit,onAddStage:()->Unit,onRemove:(Int)->Unit,onMove:(Int,Int)->Unit,onClear:()->Unit,onBack:()->Unit,onLaunch:()->Unit){
+private fun BuilderScreen(rocket:Rocket,unlockedTech:Set<String>,onAdd:(PartType)->Unit,onAddStage:()->Unit,onRemove:(Int)->Unit,onMove:(Int,Int)->Unit,onClear:()->Unit,onBack:()->Unit,onLaunch:()->Unit){
     Shell("Vehicle Lab","Tap parts to add · stack them into a launcher",onBack){
         Row(verticalAlignment=Alignment.Top,modifier=Modifier.fillMaxWidth()){
             Surface(color=Panel,shape=RoundedCornerShape(20.dp),modifier=Modifier.weight(1f).height(420.dp)){
@@ -485,14 +522,16 @@ private fun BuilderScreen(rocket:Rocket,onAdd:(PartType)->Unit,onAddStage:()->Un
             Spacer(Modifier.width(10.dp))
             LazyColumn(Modifier.width(148.dp).height(420.dp),verticalArrangement=Arrangement.spacedBy(5.dp)){
                 items(PartType.entries.toList()){p->
-                    Surface(color=Panel2,shape=RoundedCornerShape(12.dp),modifier=Modifier.fillMaxWidth().clickable{onAdd(p)}){
+                    val unlocked=isPartUnlocked(p,unlockedTech)
+                    val tileModifier=if(unlocked)Modifier.fillMaxWidth().clickable{onAdd(p)} else Modifier.fillMaxWidth()
+                    Surface(color=if(unlocked)Panel2 else Color(0xFF0A0D15),shape=RoundedCornerShape(12.dp),modifier=tileModifier){
                         Row(Modifier.padding(5.dp),verticalAlignment=Alignment.CenterVertically){
                             RocketPartThumbnail(p)
                             Spacer(Modifier.width(5.dp))
                             Column(Modifier.weight(1f)){
-                                Text(p.title,fontWeight=FontWeight.Bold,fontSize=11.sp,lineHeight=13.sp)
-                                Text("M %.1f t · F %.0f t".format(p.mass,p.fuel),fontSize=9.sp,color=Muted,lineHeight=11.sp)
-                                if(p.thrust>0)Text("%.0f kN · Isp %.0f s".format(p.thrust,p.ispSec),fontSize=9.sp,color=Orange,lineHeight=11.sp)
+                                Text(p.title,fontWeight=FontWeight.Bold,fontSize=11.sp,lineHeight=13.sp,color=if(unlocked)Ink else Muted)
+                                Text(if(unlocked)"M %.1f t · F %.0f t".format(p.mass,p.fuel) else "LOCKED · "+(requiredTech(p)?: "").uppercase(),fontSize=9.sp,color=if(unlocked)Muted else Violet,lineHeight=11.sp)
+                                if(unlocked&&p.thrust>0)Text("%.0f kN · Isp %.0f s".format(p.thrust,p.ispSec),fontSize=9.sp,color=Orange,lineHeight=11.sp)
                             }
                         }
                     }
