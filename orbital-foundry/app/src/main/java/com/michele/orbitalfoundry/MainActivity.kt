@@ -546,13 +546,12 @@ private fun RocketStackPreview(
         )
     }else Modifier
     Canvas(modifier.fillMaxSize().then(reorderModifier)){
-        drawRect(Brush.verticalGradient(listOf(Color(0xFF5B91C7),Color(0xFF4C83B8),Color(0xFF3D70A0))),size=Size(size.width,size.height))
+        drawRect(Brush.verticalGradient(listOf(Color(0xFF10263C),Color(0xFF0B1B2D),Color(0xFF071321))),size=Size(size.width,size.height))
         val grid=42f
-        for(x in 0..(size.width/grid).toInt())drawLine(Color(0x337CB7E7),Offset(x*grid,0f),Offset(x*grid,size.height),1f)
-        for(y in 0..(size.height/grid).toInt())drawLine(Color(0x337CB7E7),Offset(0f,y*grid),Offset(size.width,y*grid),1f)
-        drawLine(Color(0x2295C8F1),Offset(size.width*.5f,0f),Offset(size.width*.5f,size.height),1f)
+        for(x in 0..(size.width/grid).toInt())drawLine(Color(0x223C759F),Offset(x*grid,0f),Offset(x*grid,size.height),1f)
+        for(y in 0..(size.height/grid).toInt())drawLine(Color(0x223C759F),Offset(0f,y*grid),Offset(size.width,y*grid),1f)
+        drawLine(Color(0x3345D7FF),Offset(size.width*.5f,0f),Offset(size.width*.5f,size.height),1f)
         val count=rocket.parts.size
-        val density=androidx.compose.ui.platform.LocalDensity.current.density
         val scale=stackPreviewScale(size.height,count,density)
         val partH=88f*density*scale
         val partGap=6f*density*scale
@@ -563,9 +562,9 @@ private fun RocketStackPreview(
             drawRocketComponent(part,left,y,partW,partH)
             y-=partH+partGap
         }
-        val platformY=size.height-54f*scale
-        drawRoundRect(Color(0xFF31445C),Offset(size.width*.27f,platformY),Size(size.width*.46f,8f*scale),CornerRadius(3f*scale))
-        drawLine(Color(0xFF98C8EA),Offset(size.width*.18f,platformY+9f*scale),Offset(size.width*.82f,platformY+9f*scale),1.5f*scale)
+        val platformY=size.height-68f*density*scale
+        drawRoundRect(Color(0xFF1A354D),Offset(size.width*.27f,platformY),Size(size.width*.46f,8f*density*scale),CornerRadius(3f*density*scale))
+        drawLine(Color(0xFF4B8AB7),Offset(size.width*.18f,platformY+9f*density*scale),Offset(size.width*.82f,platformY+9f*density*scale),1.5f*density*scale)
         if(rocket.parts.isEmpty()){
             val c=Offset(size.width*.5f,size.height*.42f)
             drawCircle(Color(0x99FFFFFF),18f,c,style=Stroke(width=2f))
