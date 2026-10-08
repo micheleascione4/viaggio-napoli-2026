@@ -148,11 +148,13 @@ private fun atmosphericDensity(altitudeKm: Double): Double {
     return 1.225 * exp(-altitudeKm / 8.5)
 }
 
-private fun thrustAndIsp(parts: List<PartType>): Pair<Double, Double> {
+private fun thrustAndIsp(parts: List<PartType>, altitudeKm: Double): Pair<Double, Double> {
     val engines = parts.filter { it.thrust > 0.0 }
     val thrust = engines.sumOf { it.thrust }
-    val isp = if (thrust > 0.0) engines.sumOf { it.thrust * it.ispSec } / thrust else 0.0
-    return thrust to isp
+    val vacuumIsp = if (thrust > 0.0) engines.sumOf { it.thrust * it.ispSec } / thrust else 0.0
+    // First-stage nozzles lose specific impulse in dense air; vacuum engines recover it with altitude.
+    val atmosphereFactor = if (altitudeKm < 80.0) (0.84 + 0.16 * (altitudeKm / 80.0).coerceIn(0.0, 1.0)) else 1.0
+    return thrust to (vacuumIsp * atmosphereFactor)
 }
 
 fun stepPhysics(input: SimState, dtSeconds: Double, pitchDegrees: Double): SimState {
@@ -163,7 +165,7 @@ fun stepPhysics(input: SimState, dtSeconds: Double, pitchDegrees: Double): SimSt
     repeat(steps) {
         val altitude = s.pos.mag() - EARTH_RADIUS_KM
         val stageParts = activeStageParts(s.parts)
-        val (stageThrust, isp) = thrustAndIsp(stageParts)
+        val (stageThrust, isp) = thrustAndIsp(stageParts, altitude)
         val actualThrottle = if (s.fuel > 1e-7 && isp > 0.0) s.throttle else 0.0
         val speedKmS = s.vel.mag()
         val speedMS = speedKmS * 1000.0
@@ -197,13 +199,16 @@ fun stepPhysics(input: SimState, dtSeconds: Double, pitchDegrees: Double): SimSt
         val newSpeedMS = newVelocity.mag() * 1000.0
         val rho = atmosphericDensity(newAltitude)
         val qKpa = 0.5 * rho * newSpeedMS * newSpeedMS / 1000.0
+        val hasHeatShield = PartType.HEATSHIELD in s.parts
         val heating = sqrt((rho / 1.225).coerceAtLeast(0.0)) *
-            (newSpeedMS / 7800.0).pow(3) * if (PartType.HEATSHIELD in s.parts) 0.003 else 0.012
+            (newSpeedMS / 7800.0).pow(3) * if (hasHeatShield) 0.015 else 0.12
         val heat = (s.heat + heating * dt).coerceIn(0.0, 1.5)
         val groundSpeedMS = newVelocity.mag() * 1000.0
         val hitGround = newAltitude <= 0.0
         val landed = hitGround && groundSpeedMS <= if (s.parachuteDeployed) 18.0 else 4.0
-        val crashed = hitGround && !landed
+        val destroyedByHeating = !hasHeatShield && heat >= 1.0 && newAltitude in 0.0..100.0 && newSpeedMS > 3000.0
+        val destroyedByPressure = qKpa >= 900.0 && newAltitude in 0.0..45.0
+        val crashed = (hitGround && !landed) || destroyedByHeating || destroyedByPressure
         var targetPosition = s.targetPos
         var targetVelocity = s.targetVel
         if (s.docking && targetPosition != null && targetVelocity != null) {
@@ -211,6 +216,21 @@ fun stepPhysics(input: SimState, dtSeconds: Double, pitchDegrees: Double): SimSt
             targetVelocity = targetVelocity + targetA * dt
             targetPosition = targetPosition + targetVelocity * dt
         }
+        val polarAngle = atan2(newPosition.y, newPosition.x)
+        val newOrbit = orbitalMetrics(newPosition, newVelocity)
+        val inStableOrbit = newAltitude >= 100.0 && !newOrbit.escape && newOrbit.periapsisAltitudeKm >= 100.0
+        val wasStableOrbit = altitude >= 100.0 && !orbitalMetrics(s.pos, s.vel).escape &&
+            orbitalMetrics(s.pos, s.vel).periapsisAltitudeKm >= 100.0
+        val previousAngle = s.lastOrbitalAngle ?: atan2(s.pos.y, s.pos.x)
+        var angleDelta = polarAngle - previousAngle
+        while (angleDelta > Math.PI) angleDelta -= 2.0 * Math.PI
+        while (angleDelta < -Math.PI) angleDelta += 2.0 * Math.PI
+        val orbitProgress = when {
+            !inStableOrbit -> 0.0
+            wasStableOrbit -> (s.orbitProgressRadians + angleDelta.coerceAtLeast(0.0)).coerceAtMost(2.0 * Math.PI)
+            else -> 0.0
+        }
+        val completedOrbit = s.completedOrbit || orbitProgress >= 2.0 * Math.PI
         s = s.copy(
             pos = if (landed) newPosition.normalized() * EARTH_RADIUS_KM else newPosition,
             vel = newVelocity,
@@ -224,6 +244,9 @@ fun stepPhysics(input: SimState, dtSeconds: Double, pitchDegrees: Double): SimSt
             heat = heat,
             maxDynamicPressureKpa = max(s.maxDynamicPressureKpa, qKpa),
             maxAltitudeKm = max(s.maxAltitudeKm, newAltitude.coerceAtLeast(0.0)),
+            orbitProgressRadians = orbitProgress,
+            lastOrbitalAngle = if (inStableOrbit) polarAngle else null,
+            completedOrbit = completedOrbit,
             targetPos = targetPosition,
             targetVel = targetVelocity,
             trail = if (it % 2 == 0) (s.trail + newPosition).takeLast(720) else s.trail
