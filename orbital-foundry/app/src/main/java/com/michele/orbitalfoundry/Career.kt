@@ -4,7 +4,7 @@ data class CareerState(
     val funds:Int = 100000,
     val science:Int = 0,
     val reputation:Int = 0,
-    val unlocked:Set<String> = setOf("starter_engine","small_tank","capsule"),
+    val unlocked:Set<String> = setOf("starter_engine","small_tank","capsule","vacuum"),
     val completedContracts:Set<String> = emptySet()
 )
 
@@ -14,7 +14,8 @@ data class Contract(
     val description:String,
     val reward:Int,
     val science:Int,
-    val required:String? = null
+    val required:String? = null,
+    val availableInBuild:Boolean = true
 )
 
 object CareerDatabase {
@@ -22,21 +23,24 @@ object CareerDatabase {
         Contract("suborbital","First Light","Reach 80 km altitude and return safely.",15000,5),
         Contract("orbit","Orbital Qualification","Complete one stable Earth orbit.",30000,12,"suborbital"),
         Contract("satellite","Tiny Satellite","Deploy a probe into a 120 km circular orbit.",45000,18,"orbit"),
+        Contract("dock","Orbital Docking","Rendezvous and dock below 5 m range and 0.5 m/s relative speed.",75000,30,"satellite"),
         Contract("recovery","Safe Recovery","Land the vehicle safely after a flight.",20000,8,"suborbital"),
-        Contract("moon","Lunar Pathfinder","Reach lunar orbit.",90000,35,"satellite"),
-        Contract("landing","Lunar Landing","Land on the Moon and transmit science.",150000,60,"moon"),
-        Contract("mars","Red Planet","Reach Mars transfer trajectory.",300000,100,"landing")
+        Contract("moon","Lunar Pathfinder","Reach lunar orbit. Lunar transfer is part of the next simulation chapter.",90000,35,"satellite",false),
+        Contract("landing","Lunar Landing","Land on the Moon and transmit science. Lunar terrain is not implemented yet.",150000,60,"moon",false),
+        Contract("mars","Red Planet","Reach Mars transfer trajectory. Interplanetary transfers are planned.",300000,100,"landing",false)
     )
 
     val tech = listOf(
         Tech("starter_engine","Starter Engine",0,0,null),
         Tech("small_tank","Small Fuel Tank",0,0,"starter_engine"),
         Tech("capsule","Crew Capsule",0,0,"starter_engine"),
+        Tech("vacuum","Vacuum Engine",0,0,"starter_engine"),
         Tech("fairing","Payload Fairing",25000,10,"orbit"),
         Tech("rcs","RCS Thrusters",40000,15,"satellite"),
-        Tech("landing","Landing Legs",60000,20,"moon"),
+        Tech("docking","Docking Port",70000,20,"rcs"),
+        Tech("landing","Landing Legs",60000,20,"orbit"),
         Tech("ion","Ion Engine",100000,35,"satellite"),
-        Tech("heavy","Heavy Lift Engine",150000,45,"moon"),
+        Tech("heavy","Heavy Lift Engine",150000,45,"satellite"),
         Tech("solar","Deployable Solar",80000,25,"satellite")
     )
 }
@@ -62,7 +66,7 @@ fun completeContract(contract:Contract,state:CareerState):CareerState =
 
 fun unlockTech(tech:Tech,state:CareerState):CareerState? {
     if(tech.id in state.unlocked) return state
-    if(tech.prerequisite!=null && tech.prerequisite !in state.unlocked) return null
+    if(tech.prerequisite!=null && tech.prerequisite !in state.unlocked && tech.prerequisite !in state.completedContracts) return null
     if(state.funds<tech.cost || state.science<tech.science) return null
     return state.copy(
         funds=state.funds-tech.cost,

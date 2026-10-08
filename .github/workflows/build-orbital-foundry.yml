@@ -2,7 +2,7 @@ name: Build Orbital Foundry APK
 
 on:
   push:
-    branches: [ main, orbital-foundry-v1 ]
+    branches: [ main, orbital-foundry-v1, orbital-foundry-graphics-stage3 ]
   workflow_dispatch:
 
 concurrency:
@@ -24,6 +24,8 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
+      - name: Run flight physics tests
+        run: gradle --no-daemon -p orbital-foundry :app:testDebugUnitTest
       - name: Build debug APK
         run: gradle --no-daemon -p orbital-foundry :app:assembleDebug
       - name: Verify APK
