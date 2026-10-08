@@ -29,7 +29,7 @@ jobs:
       - name: Download freely usable planet texture maps
         run: |
           mkdir -p orbital-foundry/app/src/main/assets/textures
-          curl --fail --location --silent --show-error --retry 3 https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57723/land_ocean_ice_2048.png --output orbital-foundry/app/src/main/assets/textures/earth.png
+          curl --fail --location --silent --show-error --retry 3 https://svs.gsfc.nasa.gov/vis/a000000/a002900/a002915/bluemarble-2048.png --output orbital-foundry/app/src/main/assets/textures/earth.png
           curl --fail --location --silent --show-error --retry 3 https://space.jpl.nasa.gov/tmaps/pix/mar0kuu2.jpg --output orbital-foundry/app/src/main/assets/textures/mars.jpg
           test -s orbital-foundry/app/src/main/assets/textures/earth.png
           test -s orbital-foundry/app/src/main/assets/textures/mars.jpg
