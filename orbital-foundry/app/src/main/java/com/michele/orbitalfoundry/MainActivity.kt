@@ -159,7 +159,14 @@ class MainActivity:ComponentActivity(){
         val restoredParts=savedParts?.split(",")?.mapNotNull{token->
             runCatching{PartType.valueOf(token)}.getOrNull()
         }.orEmpty()
-        val initialRocket=if(restoredParts.isNotEmpty())Rocket(restoredParts)else starterRocket()
+        val previousDefaultRocket=listOf(
+            PartType.NOSE,PartType.CAPSULE,PartType.HEATSHIELD,PartType.PARACHUTE,
+            PartType.TANK,PartType.TANK,PartType.VACUUM_ENGINE,PartType.DECOUPLER,
+            PartType.TANK,PartType.TANK,PartType.VACUUM_ENGINE,PartType.DECOUPLER,
+            PartType.TANK,PartType.TANK,PartType.VACUUM_ENGINE,PartType.DECOUPLER,
+            PartType.TANK,PartType.TANK,PartType.ENGINE,PartType.ENGINE,PartType.ENGINE,PartType.ENGINE,PartType.FIN
+        )
+        val initialRocket=if(restoredParts.isEmpty()||restoredParts==previousDefaultRocket)starterRocket()else Rocket(restoredParts)
         val defaults=CareerState()
         val initialCareer=CareerState(
             funds=preferences.getInt("career_funds",defaults.funds),
@@ -474,7 +481,6 @@ private fun RocketPartThumbnail(part:PartType){
     }
 }
 
-@Composable
 private fun stackPreviewScale(height:Float,count:Int):Float{
     if(count<=0)return 1f
     return min(1f,((height-88f).coerceAtLeast(100f)/(count*76f))).coerceIn(.15f,1f)
