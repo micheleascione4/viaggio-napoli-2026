@@ -625,255 +625,324 @@ private fun MissionScreen(missions:Set<String>,career:CareerState,onCareer:(Care
 }
 
 private fun missionCompletions(s:SimState):Set<String>{
-    val alt=s.pos.mag()-50.0
+    val altitude=s.pos.mag()-EARTH_RADIUS_KM
     val orbit=orbitalMetrics(s.pos,s.vel)
     val done=mutableSetOf<String>()
-    if(alt>=80) done+="suborbital"
-    if(alt>=80 && orbit.periapsis-50.0>=50 && orbit.apoapsis-50.0>=80) done+="orbit"
-    if(alt>=120 && orbit.periapsis-50.0>=120) done+="satellite"
-    if(s.landed) done+="recovery"
-    if(s.landed) done+="suborbital"
+    if(s.landed&&s.maxAltitudeKm>=80.0)done+="suborbital"
+    if(!orbit.escape&&orbit.periapsisAltitudeKm>=100.0)done+="orbit"
+    if(!orbit.escape&&orbit.periapsisAltitudeKm>=120.0&&altitude>=120.0)done+="satellite"
+    if(s.landed)done+="recovery"
+    if(s.docked)done+="dock"
     return done
 }
 
-private fun launchState(rocket:Rocket)=SimState(fuel=rocket.fuel,mass=rocket.dryMass+rocket.fuel,thrust=rocket.thrust)
+private fun launchState(rocket:Rocket):SimState{
+    val active=activeStageParts(rocket.parts)
+    return SimState(
+        pos=V2(0.0,EARTH_RADIUS_KM+0.02),
+        vel=V2(0.0,0.0),
+        angle=PI/2,
+        throttle=1.0,
+        fuel=active.sumOf{it.fuel},
+        mass=rocket.dryMass+rocket.fuel,
+        thrust=active.sumOf{it.thrust},
+        parts=rocket.parts,
+        trail=listOf(V2(0.0,EARTH_RADIUS_KM+0.02))
+    )
+}
 
 @Composable
 private fun FlightScreen(sim:SimState,onTick:(SimState)->Unit,onMap:()->Unit,onBack:()->Unit,onMission:(String)->Unit){
-    var paused by remember{mutableStateOf(false)}
-    var pitchOffset by remember{mutableFloatStateOf(90f)}
-    var timeWarp by remember{mutableIntStateOf(1)}
-    LaunchedEffect(paused,timeWarp,sim.throttle,sim.guidance,sim.crashed,sim.landed){
-        if(paused||sim.crashed||sim.landed)return@LaunchedEffect
-        var local=sim
+    var paused by rememberSaveable{mutableStateOf(false)}
+    var pitchOffset by rememberSaveable{mutableFloatStateOf(90f)}
+    var timeWarp by rememberSaveable{mutableIntStateOf(1)}
+    val latestSim by rememberUpdatedState(sim)
+    val latestPitch by rememberUpdatedState(pitchOffset)
+    LaunchedEffect(paused,timeWarp,sim.crashed,sim.landed,sim.docked){
+        if(paused||sim.crashed||sim.landed||sim.docked)return@LaunchedEffect
         while(true){
-            delay(32L)
-            local=step(local,0.055*timeWarp,pitchOffset)
-            onTick(local)
-            if(local.crashed||local.landed)break
+            delay(40L)
+            val current=latestSim?:break
+            if(current.crashed||current.landed||current.docked)break
+            onTick(stepPhysics(current,0.15*timeWarp,latestPitch.toDouble()))
         }
     }
-    val alt=sim.pos.mag()-50.0
+    val altitude=sim.pos.mag()-EARTH_RADIUS_KM
     val speed=sim.vel.mag()
     val orbit=orbitalMetrics(sim.pos,sim.vel)
+    val activeParts=activeStageParts(sim.parts)
+    val activeThrust=activeParts.sumOf{it.thrust}
+    val twr=if(sim.mass>0)activeThrust/(sim.mass*G0)else 0.0
     val mission=when{
+        sim.docked->"DOCKED"
         sim.landed->"RECOVERY"
-        orbit.periapsis-50>=120&&alt>=120->"SATELLITE ORBIT"
-        orbit.periapsis-50>=50&&alt>=80->"STABLE ORBIT"
-        alt>=80->"SUBORBITAL"
-        alt>35->"ASCENT"
+        altitude>=120&&orbit.periapsisAltitudeKm>=120->"STABLE ORBIT"
+        altitude>=80->"SUBORBITAL"
+        altitude>30->"ASCENT"
         else->"LAUNCH"
     }
-    Column(Modifier.fillMaxSize().background(Bg).padding(12.dp)){
+    val rangeMeters=sim.targetPos?.let{(it-sim.pos).mag()*1000.0}
+    val relativeSpeed=if(sim.targetVel!=null)(sim.targetVel-sim.vel).mag()*1000.0 else null
+    Column(Modifier.fillMaxSize().background(Bg).padding(horizontal=12.dp,vertical=8.dp)){
         Row(verticalAlignment=Alignment.CenterVertically){
-            Text("‹",fontSize=38.sp,modifier=Modifier.clickable{onBack()})
-            Column(Modifier.weight(1f).padding(start=8.dp)){Text("MISSION · "+mission,fontWeight=FontWeight.Black,fontSize=17.sp);Text("STAGE "+sim.stage+"  ·  "+sim.guidance.name.replace('_',' '),color=Muted,fontSize=10.sp)}
-            IconButton(onClick=onMap){Text("◎",fontSize=26.sp,color=Cyan)}
+            Text("‹",fontSize=36.sp,modifier=Modifier.clickable{onBack()}.padding(horizontal=6.dp),color=Ink)
+            Column(Modifier.weight(1f).padding(start=4.dp)){
+                Text(if(sim.docking)"DOCKING RANGE" else "MISSION · $mission",fontWeight=FontWeight.Black,fontSize=16.sp,lineHeight=20.sp)
+                Text("STAGE ${sim.stage} · ${sim.guidance.name.replace('_',' ')}",color=Muted,fontSize=11.sp,lineHeight=14.sp)
+            }
+            IconButton(onClick=onMap,modifier=Modifier.size(44.dp)){Text("◎",fontSize=24.sp,color=Cyan)}
         }
-        Row(horizontalArrangement=Arrangement.spacedBy(6.dp),modifier=Modifier.fillMaxWidth()){
-            Metric("ALT","%.0f km".format(alt),Modifier.weight(1f))
-            Metric("VEL","%.1f km/s".format(speed),Modifier.weight(1f))
-            Metric("APO","%.0f km".format(orbit.apoapsis-50),Modifier.weight(1f))
-            Metric("PERI","%.0f km".format(orbit.periapsis-50),Modifier.weight(1f))
+        Spacer(Modifier.height(4.dp))
+        Row(horizontalArrangement=Arrangement.spacedBy(5.dp),modifier=Modifier.fillMaxWidth()){
+            Metric("ALT","%.0f km".format(altitude.coerceAtLeast(0.0)),Modifier.weight(1f))
+            Metric("VELOCITY",if(speed<1.0)"%.0f m/s".format(speed*1000.0) else "%.2f km/s".format(speed),Modifier.weight(1f))
+            Metric("APO",if(orbit.escape)"ESCAPE" else "%.0f km".format(orbit.apoapsisAltitudeKm),Modifier.weight(1f))
+            Metric("PERI",if(orbit.periapsisAltitudeKm<0)"IMPACT" else "%.0f km".format(orbit.periapsisAltitudeKm),Modifier.weight(1f))
         }
-        Spacer(Modifier.height(8.dp))
-        Surface(color=Panel,shape=RoundedCornerShape(22.dp),modifier=Modifier.fillMaxWidth().weight(1f)){
+        Spacer(Modifier.height(5.dp))
+        Row(horizontalArrangement=Arrangement.spacedBy(5.dp),modifier=Modifier.fillMaxWidth()){
+            Metric("TWR","%.2f".format(twr),Modifier.weight(1f))
+            Metric("MAX Q","%.0f kPa".format(sim.maxDynamicPressureKpa),Modifier.weight(1f))
+            Metric("HEAT","%.0f%%".format((sim.heat*100).coerceIn(0.0,150.0)),Modifier.weight(1f))
+            Metric("FUEL","%.1f t".format(sim.fuel),Modifier.weight(1f))
+        }
+        Spacer(Modifier.height(6.dp))
+        Surface(color=Panel,shape=RoundedCornerShape(20.dp),modifier=Modifier.fillMaxWidth().weight(1f)){
             Canvas(Modifier.fillMaxSize()){
-                val scale=(min(size.width,size.height)/170f).coerceAtLeast(.5f)
-                val center=Offset(size.width/2,size.height/2)
-                // Deep-space backdrop and layered starfield.
-                drawRect(Brush.verticalGradient(listOf(Color(0xFF070B18),Color(0xFF0D1630),Color(0xFF05060B))),size=Size(size.width,size.height))
-                repeat(74){i->
+                val small=min(size.width,size.height)
+                val center=Offset(size.width*.5f,size.height*.49f)
+                val altitudeLocal=(sim.pos.mag()-EARTH_RADIUS_KM).coerceAtLeast(0.0)
+                val scale=(small/(max(35.0,altitudeLocal+35.0)*2.7)).toFloat().coerceIn(.10f,8f)
+                drawRect(Brush.verticalGradient(listOf(Color(0xFF050916),Color(0xFF0C1931),Color(0xFF05060B))),size=Size(size.width,size.height))
+                // Custom starfield with a subtle blue nebula band.
+                drawOval(Brush.radialGradient(listOf(Color(0x223E79D8),Color.Transparent),Offset(size.width*.72f,size.height*.22f),small*.72f),Offset(size.width*.06f,size.height*.02f),Size(size.width*.95f,size.height*.70f))
+                repeat(88){i->
                     val sx=((i*83+17)%997)/997f*size.width
                     val sy=((i*47+29)%991)/991f*size.height
-                    val radius=if(i%9==0)2f else if(i%3==0)1.4f else .8f
-                    drawCircle(if(i%8==0)Color(0xFF8FDFFF) else Color.White,radius,Offset(sx,sy),alpha=if(i%5==0).75f else .34f)
+                    val radius=if(i%11==0)2f else if(i%3==0)1.3f else .75f
+                    drawCircle(if(i%9==0)Color(0xFF93E2FF) else Color.White,radius,Offset(sx,sy),alpha=if(i%5==0).82f else .33f)
                 }
-                // Atmospheric halo, then a shaded Earth with land and cloud bands.
-                val earthR=50*scale
-                drawCircle(Brush.radialGradient(listOf(Color(0x5549BFFF),Color(0x2249BFFF),Color.Transparent),center,earthR*1.48f),earthR*1.48f,center)
-                drawCircle(Brush.radialGradient(listOf(Color(0xFF3988C8),Color(0xFF1D4B83),Color(0xFF081326)),Offset(center.x-earthR*.32f,center.y-earthR*.38f),earthR*1.75f),earthR,center)
-                // Stylized landmasses kept within the visible disc.
-                val land1=Path().apply{
-                    moveTo(center.x-earthR*.72f,center.y-earthR*.22f)
-                    lineTo(center.x-earthR*.48f,center.y-earthR*.43f)
-                    lineTo(center.x-earthR*.22f,center.y-earthR*.35f)
-                    lineTo(center.x-earthR*.08f,center.y-earthR*.08f)
-                    lineTo(center.x-earthR*.28f,center.y+earthR*.12f)
-                    lineTo(center.x-earthR*.40f,center.y+earthR*.47f)
-                    lineTo(center.x-earthR*.62f,center.y+earthR*.35f)
+                // Camera follows the spacecraft; altitude and the apparent Earth size change smoothly.
+                val radial=sim.pos.normalized()
+                val earthR=(small*.36f/(1.0+altitudeLocal/1800.0)).toFloat().coerceAtLeast(18f)
+                val altitudePixels=(ln(1.0+altitudeLocal/8.0)*26.0).toFloat().coerceAtMost(size.height*.54f)
+                val earthCenter=Offset(
+                    center.x-radial.x.toFloat()*(earthR+altitudePixels),
+                    center.y+radial.y.toFloat()*(earthR+altitudePixels)
+                )
+                drawCircle(Brush.radialGradient(listOf(Color(0x6654BFFF),Color(0x2254BFFF),Color.Transparent),earthCenter,earthR*1.55f),earthR*1.55f,earthCenter)
+                drawCircle(Brush.radialGradient(listOf(Color(0xFF459CD5),Color(0xFF1D568D),Color(0xFF071326)),Offset(earthCenter.x-earthR*.32f,earthCenter.y-earthR*.36f),earthR*1.65f),earthR,earthCenter)
+                val continentA=Path().apply{
+                    moveTo(earthCenter.x-earthR*.74f,earthCenter.y-earthR*.20f)
+                    lineTo(earthCenter.x-earthR*.48f,earthCenter.y-earthR*.43f)
+                    lineTo(earthCenter.x-earthR*.20f,earthCenter.y-earthR*.32f)
+                    lineTo(earthCenter.x-earthR*.09f,earthCenter.y-earthR*.09f)
+                    lineTo(earthCenter.x-earthR*.29f,earthCenter.y+earthR*.12f)
+                    lineTo(earthCenter.x-earthR*.39f,earthCenter.y+earthR*.43f)
+                    lineTo(earthCenter.x-earthR*.65f,earthCenter.y+earthR*.33f)
                     close()
                 }
-                drawPath(land1,Brush.linearGradient(listOf(Color(0xFF76B77B),Color(0xFF34755B)),Offset(center.x-earthR,center.y-earthR),Offset(center.x,center.y+earthR)))
-                val land2=Path().apply{
-                    moveTo(center.x+earthR*.10f,center.y-earthR*.45f)
-                    lineTo(center.x+earthR*.48f,center.y-earthR*.32f)
-                    lineTo(center.x+earthR*.66f,center.y-earthR*.05f)
-                    lineTo(center.x+earthR*.42f,center.y+earthR*.19f)
-                    lineTo(center.x+earthR*.25f,center.y+earthR*.42f)
-                    lineTo(center.x+earthR*.08f,center.y+earthR*.13f)
-                    lineTo(center.x-earthR*.02f,center.y-earthR*.12f)
+                drawPath(continentA,Brush.linearGradient(listOf(Color(0xFF89C984),Color(0xFF2C6954)),Offset(earthCenter.x-earthR,earthCenter.y-earthR),Offset(earthCenter.x,earthCenter.y+earthR)))
+                val continentB=Path().apply{
+                    moveTo(earthCenter.x+earthR*.08f,earthCenter.y-earthR*.43f)
+                    lineTo(earthCenter.x+earthR*.48f,earthCenter.y-earthR*.30f)
+                    lineTo(earthCenter.x+earthR*.66f,earthCenter.y-earthR*.02f)
+                    lineTo(earthCenter.x+earthR*.42f,earthCenter.y+earthR*.18f)
+                    lineTo(earthCenter.x+earthR*.22f,earthCenter.y+earthR*.44f)
+                    lineTo(earthCenter.x+earthR*.07f,earthCenter.y+earthR*.13f)
                     close()
                 }
-                drawPath(land2,Brush.linearGradient(listOf(Color(0xFF83BB84),Color(0xFF3C8062)),Offset(center.x,center.y-earthR),Offset(center.x+earthR,center.y+earthR)))
-                repeat(5){i->
-                    val y=center.y-earthR*.56f+i*earthR*.24f
-                    drawOval(Color(0x88D8F0FF),topLeft=Offset(center.x-earthR*.72f,y),size=Size(earthR*1.38f,earthR*.075f),style=Stroke(width=earthR*.04f))
+                drawPath(continentB,Brush.linearGradient(listOf(Color(0xFF8CC681),Color(0xFF3D8058)),Offset(earthCenter.x,earthCenter.y-earthR),Offset(earthCenter.x+earthR,earthCenter.y+earthR)))
+                repeat(4){i->
+                    val yy=earthCenter.y-earthR*.45f+i*earthR*.27f
+                    drawOval(Color(0x99D8F0FF),topLeft=Offset(earthCenter.x-earthR*.67f,yy),size=Size(earthR*1.25f,earthR*.065f),style=Stroke(width=max(1f,earthR*.03f)))
                 }
-                drawCircle(Color(0x994BC3FF),earthR,center,style=Stroke(width=max(1.5f,earthR*.035f)))
-                // Predicted trajectory.
+                drawCircle(Color(0xBB59CBFF),earthR,earthCenter,style=Stroke(width=max(1.5f,earthR*.025f)))
+                // Flight trail in the camera frame.
                 if(sim.trail.size>1){
                     val path=Path()
                     sim.trail.forEachIndexed{idx,p->
-                        val q=worldToScreen(p,sim.pos,center,scale)
-                        if(idx==0)path.moveTo(q.x,q.y) else path.lineTo(q.x,q.y)
+                        val q=Offset(center.x+((p.x-sim.pos.x)*scale).toFloat(),center.y-((p.y-sim.pos.y)*scale).toFloat())
+                        if(idx==0)path.moveTo(q.x,q.y)else path.lineTo(q.x,q.y)
                     }
-                    drawPath(path,color=Color(0xAA45D7FF),style=Stroke(width=5f))
-                    drawPath(path,color=Cyan,style=Stroke(width=2f),alpha=.9f)
+                    drawPath(path,color=Color(0x7745D7FF),style=Stroke(width=6f))
+                    drawPath(path,color=Cyan,style=Stroke(width=2.4f))
                 }
-                // Moon marker and orbit guide.
-                val moon=moonPos(sim.time)
-                val ms=worldToScreen(moon,sim.pos,center,scale)
-                drawCircle(Color(0x332A3142),19f,ms)
-                drawCircle(Brush.radialGradient(listOf(Color(0xFFD6D8E0),Color(0xFF777F91),Color(0xFF3A4152)),Offset(ms.x-4f,ms.y-4f),24f),13f,ms)
-                repeat(6){i->drawCircle(Color(0x55777F91),1.2f,Offset(ms.x+cos(i*1.1).toFloat()*7f,ms.y+sin(i*1.1).toFloat()*6f))}
-                // Rocket silhouette follows the commanded attitude.
-                val rp=worldToScreen(sim.pos,sim.pos,center,scale)
+                // The target is projected to a readable reticle; range remains physically measured in the HUD.
+                if(sim.docking&&sim.targetPos!=null){
+                    val delta=sim.targetPos-sim.pos
+                    val u=delta.normalized()
+                    val targetScreen=Offset(center.x+u.x.toFloat()*78f,center.y-u.y.toFloat()*78f)
+                    drawLine(Color(0x8845D7FF),center,targetScreen,1.5f)
+                    drawCircle(Color(0x3345D7FF),17f,targetScreen)
+                    drawCircle(Cyan,12f,targetScreen,style=Stroke(width=2f))
+                    drawLine(Cyan,Offset(targetScreen.x-17f,targetScreen.y),Offset(targetScreen.x+17f,targetScreen.y),1.5f)
+                    drawLine(Cyan,Offset(targetScreen.x,targetScreen.y-17f),Offset(targetScreen.x,targetScreen.y+17f),1.5f)
+                    drawCircle(Color.White,3f,targetScreen)
+                }
+                // Engine plume, body and attitude marker.
+                val rp=center
                 val fx=cos(sim.angle).toFloat()
                 val fy=-sin(sim.angle).toFloat()
                 val bx=-fx
                 val by=-fy
                 val sideX=-fy
                 val sideY=fx
-                if(sim.fuel>0.01 && sim.throttle>0.01 && !sim.crashed && !sim.landed){
-                    val flameLen=12f+sim.throttle.toFloat()*24f
+                if(sim.fuel>0.01&&sim.throttle>0.01&&!sim.crashed&&!sim.landed&&!sim.docked){
+                    val flameLength=14f+sim.throttle.toFloat()*28f
                     val flame=Path().apply{
                         moveTo(rp.x+bx*8f+sideX*3.5f,rp.y+by*8f+sideY*3.5f)
-                        lineTo(rp.x+bx*flameLen,rp.y+by*flameLen)
+                        lineTo(rp.x+bx*flameLength,rp.y+by*flameLength)
                         lineTo(rp.x+bx*8f-sideX*3.5f,rp.y+by*8f-sideY*3.5f)
                         close()
                     }
-                    drawPath(flame,Brush.verticalGradient(listOf(Color(0xFFFFF4BC),Color(0xFFFFA43A),Color(0x55FF4D2E)),startY=rp.y-30f,endY=rp.y+30f))
-                    drawCircle(Color(0x55FF8B38),9f,Offset(rp.x+bx*10f,rp.y+by*10f))
+                    drawPath(flame,Brush.verticalGradient(listOf(Color(0xFFFFF5C9),Color(0xFFFFA13B),Color(0x55FF4B30)),startY=rp.y-30f,endY=rp.y+36f))
+                    drawCircle(Color(0x44FF8A35),10f,Offset(rp.x+bx*10f,rp.y+by*10f))
+                    repeat(9){i->
+                        val t=i/8f
+                        drawCircle(Color(0x44FFC078),1.8f*(1f-t),Offset(rp.x+bx*(12f+i*3.7f)+sin((sim.time+i)*2.4).toFloat()*2f,rp.y+by*(12f+i*3.7f)))
+                    }
                 }
-                val rocketBody=Path().apply{
-                    moveTo(rp.x+fx*13f,rp.y+fy*13f)
-                    lineTo(rp.x-fx*8f+sideX*5f,rp.y-fy*8f+sideY*5f)
+                val body=Path().apply{
+                    moveTo(rp.x+fx*14f,rp.y+fy*14f)
+                    lineTo(rp.x-fx*8f+sideX*5.2f,rp.y-fy*8f+sideY*5.2f)
                     lineTo(rp.x-fx*6f,rp.y-fy*6f)
-                    lineTo(rp.x-fx*8f-sideX*5f,rp.y-fy*8f-sideY*5f)
+                    lineTo(rp.x-fx*8f-sideX*5.2f,rp.y-fy*8f-sideY*5.2f)
                     close()
                 }
-                drawPath(rocketBody,Brush.linearGradient(listOf(Color.White,Color(0xFF9BAAC1),Color(0xFF404D64)),Offset(rp.x-8f,rp.y-8f),Offset(rp.x+8f,rp.y+8f)))
+                drawPath(body,Brush.linearGradient(listOf(Color.White,Color(0xFF9BACBF),Color(0xFF404F68)),Offset(rp.x-8f,rp.y-8f),Offset(rp.x+8f,rp.y+8f)))
                 drawCircle(Color(0xFF45D7FF),2.2f,Offset(rp.x+fx*2.5f,rp.y+fy*2.5f))
                 drawCircle(Color.White,2f,rp)
+                if(sim.heat>.65){
+                    drawRoundRect(Color(0x66FF5369),Offset(2f,2f),Size(size.width-4f,size.height-4f),CornerRadius(18f),style=Stroke(width=4f))
+                }
             }
         }
-        Text("THROTTLE "+(sim.throttle*100).roundToInt()+"%",color=Muted,fontSize=10.sp,fontWeight=FontWeight.Bold)
-        Slider(value=sim.throttle.toFloat(),onValueChange={onTick(sim.copy(throttle=it.toDouble()))},valueRange=0f..1f,colors=SliderDefaults.colors(thumbColor=Cyan,activeTrackColor=Cyan))
+        Spacer(Modifier.height(5.dp))
+        Row(verticalAlignment=Alignment.CenterVertically){
+            Text("THROTTLE",color=Muted,fontSize=11.sp,fontWeight=FontWeight.Black)
+            Spacer(Modifier.width(8.dp))
+            Text("${(sim.throttle*100).roundToInt()}%",color=Ink,fontSize=14.sp,fontWeight=FontWeight.Black)
+            Spacer(Modifier.weight(1f))
+            Text(if(sim.parachuteDeployed)"CHUTE DEPLOYED" else "T+ ${sim.time.roundToInt()} s",color=if(sim.parachuteDeployed)Green else Muted,fontSize=11.sp,fontWeight=FontWeight.Bold)
+        }
+        Slider(value=sim.throttle.toFloat(),onValueChange={onTick(sim.copy(throttle=it.toDouble()))},valueRange=0f..1f,modifier=Modifier.heightIn(min=36.dp),colors=SliderDefaults.colors(thumbColor=Cyan,activeTrackColor=Cyan))
         Row(horizontalArrangement=Arrangement.spacedBy(6.dp),modifier=Modifier.fillMaxWidth()){
             SmallButton(if(paused)"RESUME" else "PAUSE",{paused=!paused},Modifier.weight(1f))
-            SmallButton("STAGE",{onTick(sim.copy(stage=(sim.stage+1).coerceAtMost(2)))},Modifier.weight(1f))
+            SmallButton("STAGE",{onTick(separateStage(sim))},Modifier.weight(1f),enabled=sim.parts.contains(PartType.DECOUPLER))
+            SmallButton(if(sim.parachuteDeployed)"CHUTE ✓" else "CHUTE",{
+                val currentAlt=sim.pos.mag()-EARTH_RADIUS_KM
+                if(PartType.PARACHUTE in activeStageParts(sim.parts)&&currentAlt in 0.0..15.0&&sim.vel.mag()<0.30)onTick(sim.copy(parachuteDeployed=true))
+            },Modifier.weight(1f),enabled=PartType.PARACHUTE in activeStageParts(sim.parts)&&altitude in 0.0..15.0&&speed<0.30&&!sim.parachuteDeployed)
+            SmallButton("WARP ×$timeWarp",{timeWarp=if(timeWarp==1)5 else if(timeWarp==5)20 else 1},Modifier.weight(1f))
+        }
+        Row(horizontalArrangement=Arrangement.spacedBy(6.dp),modifier=Modifier.fillMaxWidth()){
             SmallButton("P−",{pitchOffset=(pitchOffset-5f).coerceIn(0f,180f);onTick(sim.copy(guidance=Guidance.MANUAL))},Modifier.weight(1f))
             SmallButton("MAN",{onTick(sim.copy(guidance=Guidance.MANUAL))},Modifier.weight(1f))
             SmallButton("P+",{pitchOffset=(pitchOffset+5f).coerceIn(0f,180f);onTick(sim.copy(guidance=Guidance.MANUAL))},Modifier.weight(1f))
             SmallButton("PRO",{onTick(sim.copy(guidance=Guidance.PROGRADE))},Modifier.weight(1f))
             SmallButton("RET",{onTick(sim.copy(guidance=Guidance.RETROGRADE))},Modifier.weight(1f))
-            SmallButton("WARP x"+timeWarp,{timeWarp=if(timeWarp==1)5 else if(timeWarp==5)20 else 1},Modifier.weight(1f))
+        }
+        if(sim.docking&&rangeMeters!=null&&relativeSpeed!=null){
+            Surface(color=Panel2,shape=RoundedCornerShape(14.dp),modifier=Modifier.fillMaxWidth().padding(top=4.dp)){
+                Column(Modifier.padding(horizontal=10.dp,vertical=7.dp)){
+                    Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.fillMaxWidth()){
+                        Column(Modifier.weight(1f)){
+                            Text("TARGET RANGE",fontSize=10.sp,color=Muted,fontWeight=FontWeight.Bold)
+                            Text(if(rangeMeters>=1000)"%.2f km".format(rangeMeters/1000.0) else "%.1f m".format(rangeMeters),fontSize=15.sp,fontWeight=FontWeight.Black)
+                        }
+                        Column(Modifier.weight(1f)){
+                            Text("RELATIVE SPEED",fontSize=10.sp,color=Muted,fontWeight=FontWeight.Bold)
+                            Text("%.2f m/s".format(relativeSpeed),fontSize=15.sp,fontWeight=FontWeight.Black,color=if(relativeSpeed<0.5)Green else Orange)
+                        }
+                    }
+                    Spacer(Modifier.height(5.dp))
+                    Row(horizontalArrangement=Arrangement.spacedBy(6.dp),modifier=Modifier.fillMaxWidth()){
+                        SmallButton("APPROACH", {onTick(applyDockingApproach(sim))},Modifier.weight(1f),enabled=!sim.docked)
+                        SmallButton("MATCH V", {onTick(matchDockingVelocity(sim))},Modifier.weight(1f),enabled=!sim.docked)
+                        SmallButton("DOCK", {val docked=attemptDock(sim);onTick(docked);if(docked.docked)onMission("dock")},Modifier.weight(1f),enabled=!sim.docked&&rangeMeters<=5.0&&relativeSpeed<=0.5)
+                    }
+                }
+            }
         }
         if(sim.crashed){
-            Surface(color=Color(0xEE1A0A11),shape=RoundedCornerShape(18.dp),modifier=Modifier.fillMaxWidth().padding(top=8.dp)){Text("VEHICLE LOST · RECOVERY REQUIRED",color=Red,fontWeight=FontWeight.Black,modifier=Modifier.padding(14.dp))}
+            Surface(color=Color(0xEE341321),shape=RoundedCornerShape(14.dp),modifier=Modifier.fillMaxWidth().padding(top=4.dp)){Text("VEHICLE LOST · REVIEW TWR, Q AND RE-ENTRY",color=Red,fontWeight=FontWeight.Black,fontSize=12.sp,modifier=Modifier.padding(10.dp))}
         }else if(sim.landed){
-            Surface(color=Color(0xEE0D2A1F),shape=RoundedCornerShape(18.dp),modifier=Modifier.fillMaxWidth().padding(top=8.dp)){Text("SOFT LANDING · OBJECTIVE ACHIEVED · CLAIM IN MISSION CONTROL",color=Green,fontWeight=FontWeight.Black,modifier=Modifier.padding(14.dp))}
+            Surface(color=Color(0xEE0D2A1F),shape=RoundedCornerShape(14.dp),modifier=Modifier.fillMaxWidth().padding(top=4.dp)){Text(if(sim.maxAltitudeKm>=80)"SAFE RECOVERY · CLAIM FIRST LIGHT" else "SAFE LANDING · FLIGHT RECORDED",color=Green,fontWeight=FontWeight.Black,fontSize=12.sp,modifier=Modifier.padding(10.dp))}
+        }else if(sim.docked){
+            Surface(color=Color(0xEE0D2A1F),shape=RoundedCornerShape(14.dp),modifier=Modifier.fillMaxWidth().padding(top=4.dp)){Text("DOCKING SUCCESSFUL · RELATIVE MOTION MATCHED",color=Green,fontWeight=FontWeight.Black,fontSize=12.sp,modifier=Modifier.padding(10.dp))}
+        }else if(orbit.periapsisAltitudeKm<0&&altitude>80){
+            Text("WARNING · IMPACT TRAJECTORY — RAISE PERIAPSIS",fontSize=11.sp,color=Red,fontWeight=FontWeight.Bold)
         }
     }
 }
 
 @Composable
-private fun SmallButton(text:String,onClick:()->Unit,modifier:Modifier=Modifier){
-    Button(onClick=onClick,modifier=modifier.heightIn(min=46.dp),shape=RoundedCornerShape(12.dp),contentPadding=PaddingValues(horizontal=5.dp,vertical=8.dp),colors=ButtonDefaults.buttonColors(containerColor=Panel2)){Text(text,fontSize=11.sp,lineHeight=13.sp,fontWeight=FontWeight.Black)}
+private fun SmallButton(text:String,onClick:()->Unit,modifier:Modifier=Modifier,enabled:Boolean=true){
+    Button(onClick=onClick,enabled=enabled,modifier=modifier.heightIn(min=44.dp),shape=RoundedCornerShape(11.dp),contentPadding=PaddingValues(horizontal=5.dp,vertical=7.dp),colors=ButtonDefaults.buttonColors(containerColor=Panel2,disabledContainerColor=Color(0xFF10131D))){Text(text,fontSize=10.sp,lineHeight=12.sp,fontWeight=FontWeight.Black)}
 }
 
 @Composable
 private fun MapScreen(sim:SimState,onBack:()->Unit){
-    Shell("Navigation Map","System view · trajectory preview",onBack){
+    Shell("Navigation Map","Earth-centred trajectories · logarithmic system map",onBack){
         Surface(color=Panel,shape=RoundedCornerShape(22.dp),modifier=Modifier.fillMaxWidth().weight(1f)){
             Canvas(Modifier.fillMaxSize().padding(10.dp)){
                 val c=Offset(size.width/2,size.height/2)
-                drawCircle(Color(0xFFFFD86E),26f,c)
-                listOf(75f,135f,205f).forEach{r->drawCircle(Color(0xFF263148),r,c,style=Stroke(width=1.5f))}
-                drawCircle(Color(0xFF2E63A1),12f,Offset(c.x+75f,c.y))
-                drawCircle(Color(0xFFAAAAAF),5f,Offset(c.x+135f,c.y))
-                drawCircle(Color(0xFFAA4A35),10f,Offset(c.x+205f,c.y))
-                val path=Path()
-                sim.trail.takeLast(240).forEachIndexed{idx,p->
-                    val q=Offset(c.x+(p.x/400.0).toFloat()*min(size.width,size.height),c.y-(p.y/400.0).toFloat()*min(size.width,size.height))
-                    if(idx==0)path.moveTo(q.x,q.y) else path.lineTo(q.x,q.y)
+                val mapR=min(size.width,size.height)*.44f
+                drawRect(Brush.verticalGradient(listOf(Color(0xFF060A17),Color(0xFF0A1427))),size=Size(size.width,size.height))
+                repeat(60){i->drawCircle(Color.White,if(i%7==0)1.5f else .7f,Offset(((i*71)%997)/997f*size.width,((i*37)%991)/991f*size.height),alpha=.45f)}
+                fun plotRadius(radiusKm:Double):Float{
+                    val earthR=EARTH_RADIUS_KM
+                    return if(radiusKm<=earthR*4.0)(15.0+(radiusKm-earthR).coerceAtLeast(0.0)/earthR*12.0).toFloat()
+                    else (27.0+ln(radiusKm/(earthR*4.0))*25.0).toFloat().coerceAtMost(mapR)
                 }
-                if(sim.trail.isNotEmpty())drawPath(path,color=Cyan,style=Stroke(width=3f))
+                listOf(1.03,1.10,1.20,1.5,2.0,3.0).forEach{factor->
+                    drawCircle(Color(0x332F4B71),plotRadius(EARTH_RADIUS_KM*factor),c,style=Stroke(width=1f))
+                }
+                val earthRadius=15f
+                drawCircle(Brush.radialGradient(listOf(Color(0xFF56B6E9),Color(0xFF18528A),Color(0xFF081529)),Offset(c.x-4f,c.y-5f),earthRadius*1.8f),earthRadius,c)
+                drawCircle(Color(0x994BC3FF),earthRadius,c,style=Stroke(width=1.5f))
+                val moonAngle=2.0*PI*sim.time/(27.321661*86400.0)
+                val moon=V2(cos(moonAngle)*MOON_ORBIT_KM,sin(moonAngle)*MOON_ORBIT_KM)
+                val moonR=plotRadius(MOON_ORBIT_KM)
+                val moonSpot=Offset(c.x+cos(moonAngle).toFloat()*moonR,c.y-sin(moonAngle).toFloat()*moonR)
+                drawCircle(Color(0x339EA8BD),10f,moonSpot)
+                drawCircle(Brush.radialGradient(listOf(Color(0xFFE6E8EE),Color(0xFF858C9D),Color(0xFF3D4555)),Offset(moonSpot.x-2f,moonSpot.y-2f),12f),6f,moonSpot)
+                val marsR=plotRadius(227_940_000.0)
+                drawCircle(Color(0x558A4A3C),8f,Offset(c.x+marsR,c.y),style=Stroke(width=2f))
+                // Actual path points, compressed logarithmically so LEO remains visible beside lunar distance.
+                if(sim.trail.size>1){
+                    val path=Path()
+                    sim.trail.takeLast(500).forEachIndexed{idx,p->
+                        val radius=p.mag().coerceAtLeast(1.0)
+                        val angle=atan2(p.y,p.x)
+                        val rp=plotRadius(radius)
+                        val q=Offset(c.x+cos(angle).toFloat()*rp,c.y-sin(angle).toFloat()*rp)
+                        if(idx==0)path.moveTo(q.x,q.y)else path.lineTo(q.x,q.y)
+                    }
+                    drawPath(path,color=Color(0x5545D7FF),style=Stroke(width=5f))
+                    drawPath(path,color=Cyan,style=Stroke(width=2f))
+                }
+                val currentAngle=atan2(sim.pos.y,sim.pos.x)
+                val currentR=plotRadius(sim.pos.mag())
+                drawCircle(Color.White,3.5f,Offset(c.x+cos(currentAngle).toFloat()*currentR,c.y-sin(currentAngle).toFloat()*currentR))
+                if(sim.targetPos!=null&&sim.docking){
+                    val targetAngle=atan2(sim.targetPos.y,sim.targetPos.x)
+                    val targetR=plotRadius(sim.targetPos.mag())
+                    drawCircle(Cyan,5f,Offset(c.x+cos(targetAngle).toFloat()*targetR,c.y-sin(targetAngle).toFloat()*targetR),style=Stroke(width=2f))
+                }
             }
         }
         Spacer(Modifier.height(8.dp))
         Surface(color=Panel,shape=RoundedCornerShape(18.dp)){
             Column(Modifier.padding(14.dp)){
-                Text("NAVIGATION",fontWeight=FontWeight.Black,fontSize=12.sp,color=Muted)
-                Text("Earth  ·  Moon  ·  Mars",fontWeight=FontWeight.Bold,fontSize=18.sp,modifier=Modifier.padding(top=3.dp))
-                Text("Next iteration: transfer windows, encounters, docking and station construction.",color=Muted,fontSize=12.sp,modifier=Modifier.padding(top=4.dp))
+                Text("NAVIGATION COMPUTER",fontWeight=FontWeight.Black,fontSize=12.sp,color=Muted)
+                Text("Earth · Moon · Mars",fontWeight=FontWeight.Bold,fontSize=18.sp,modifier=Modifier.padding(top=3.dp))
+                Text("Distances in the system view are compressed logarithmically; telemetry and orbit calculations use real kilometre scales.",color=Muted,fontSize=12.sp,lineHeight=17.sp,modifier=Modifier.padding(top=4.dp))
             }
         }
     }
 }
-
-private data class Orbital(val apoapsis:Double,val periapsis:Double)
-
-private fun orbitalMetrics(pos:V2,vel:V2):Orbital{
-    val mu=2500.0
-    val r=pos.mag()
-    val v=vel.mag()
-    val energy=v*v/2-mu/r
-    if(energy>=0)return Orbital(r+v*25,r-50)
-    val a=-mu/(2*energy)
-    val h=abs(pos.x*vel.y-pos.y*vel.x)
-    val e=sqrt((1-h*h/(a*mu)).coerceAtLeast(0.0))
-    return Orbital(a*(1+e),a*(1-e))
-}
-
-private fun moonPos(t:Double):V2{
-    val a=t*.0045
-    return V2(cos(a)*650.0,sin(a)*650.0)
-}
-
-private fun step(s:SimState,dt:Double,pitchOffset:Float):SimState{
-    if(s.crashed||s.landed)return s
-    val moon=moonPos(s.time)
-    val muE=2500.0
-    val muM=240.0
-    val rE=s.pos.mag().coerceAtLeast(1.0)
-    val de=s.pos
-    val ae=de*(-muE/rE.pow(3))
-    val dm=s.pos-moon
-    val am=dm*(-muM/dm.mag().coerceAtLeast(1.0).pow(3))
-    val gravity=ae+am
-    val target=when(s.guidance){
-        Guidance.PROGRADE->atan2(s.vel.y,s.vel.x)
-        Guidance.RETROGRADE->atan2(-s.vel.y,-s.vel.x)
-        Guidance.HOLD_ORBIT->PI/2
-        Guidance.MANUAL->pitchOffset*PI/180
-    }
-    val thrustDir=V2(cos(target),sin(target))
-    val activeThrust=if(s.stage<=1)s.thrust else s.thrust*.55
-    val burn=activeThrust*s.throttle/s.mass.coerceAtLeast(1.0)
-    val thrustAcc=if(s.fuel>0)thrustDir*burn else V2(0.0,0.0)
-    val newVel=s.vel+(gravity+thrustAcc)*dt
-    val newPos=s.pos+newVel*dt
-    val flow=.030*s.throttle*(activeThrust/220.0)
-    val newFuel=(s.fuel-flow*dt).coerceAtLeast(0.0)
-    val alt=newPos.mag()-50.0
-    val speed=newVel.mag()
-    val crashed=alt<=0&&speed>2.2
-    val landed=alt<=0&&speed<=2.2
-    return s.copy(pos=newPos,vel=newVel,angle=target,fuel=newFuel,mass=(s.mass-(s.fuel-newFuel)).coerceAtLeast(1.0),time=s.time+dt,crashed=crashed,landed=landed,trail=(s.trail+newPos).takeLast(520))
-}
-
 private fun worldToScreen(p:V2,rocket:V2,center:Offset,scale:Float):Offset{
     return Offset(center.x+((p.x-rocket.x)*scale).toFloat(),center.y-((p.y-rocket.y)*scale).toFloat())
 }
