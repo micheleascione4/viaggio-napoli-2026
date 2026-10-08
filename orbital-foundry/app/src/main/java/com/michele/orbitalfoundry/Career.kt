@@ -4,7 +4,7 @@ data class CareerState(
     val funds:Int = 100000,
     val science:Int = 0,
     val reputation:Int = 0,
-    val unlocked:Set<String> = setOf("starter_engine","small_tank","capsule","vacuum"),
+    val unlocked:Set<String> = setOf("starter_engine","small_tank","capsule","vacuum","heavy"),
     val completedContracts:Set<String> = emptySet()
 )
 
