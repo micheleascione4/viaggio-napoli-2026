@@ -54,7 +54,7 @@ enum class PartType(
     PROBE_CORE("Probe Core","◈",0.8,0.0,0.0,Color(0xFF8AD4FF)),
     TANK("Fuel Tank","▣",4.0,24.0,0.0,Color(0xFF6C7BFF)),
     ENGINE("Vector Engine","▲",3.2,0.0,1250.0,Orange,330.0),
-    VACUUM_ENGINE("Vector Vacuum Engine","▲",3.2,0.0,1250.0,Cyan,500.0),
+    VACUUM_ENGINE("Vector Vacuum Engine","▲",3.2,0.0,2000.0,Cyan,520.0),
     HEAVY_ENGINE("Heavy Lift Engine","▼",8.5,0.0,4000.0,Color(0xFFFF875A),330.0),
     ION_ENGINE("Ion Thruster","✣",0.8,0.0,2.5,Color(0xFF68E7FF),2200.0),
     ION_TANK("Xenon Tank","▣",0.5,6.0,0.0,Color(0xFF4DD5D0)),
@@ -104,7 +104,7 @@ fun starterRocket():Rocket=Rocket(listOf(
     PartType.TANK,PartType.TANK,PartType.VACUUM_ENGINE,PartType.DECOUPLER,
     PartType.TANK,PartType.TANK,PartType.VACUUM_ENGINE,PartType.DECOUPLER,
     PartType.TANK,PartType.TANK,PartType.VACUUM_ENGINE,PartType.DECOUPLER,
-    PartType.TANK,PartType.TANK,PartType.ENGINE,PartType.ENGINE,PartType.ENGINE,PartType.FIN
+    PartType.TANK,PartType.TANK,PartType.ENGINE,PartType.ENGINE,PartType.ENGINE,PartType.ENGINE,PartType.FIN
 )
 
 
