@@ -140,24 +140,65 @@ class MainActivity:ComponentActivity(){
         super.onCreate(savedInstanceState)
         val preferences=getSharedPreferences("orbital_foundry", MODE_PRIVATE)
         val showTutorial=!preferences.getBoolean("tutorial_seen",false)
+        val savedParts=preferences.getString("rocket_parts",null)
+        val restoredParts=savedParts?.split(",")?.mapNotNull{token->
+            runCatching{PartType.valueOf(token)}.getOrNull()
+        }.orEmpty()
+        val initialRocket=if(restoredParts.isNotEmpty())Rocket(restoredParts)else starterRocket()
+        val defaults=CareerState()
+        val initialCareer=CareerState(
+            funds=preferences.getInt("career_funds",defaults.funds),
+            science=preferences.getInt("career_science",defaults.science),
+            reputation=preferences.getInt("career_reputation",defaults.reputation),
+            unlocked=preferences.getStringSet("career_unlocked",null)?.toSet()?:defaults.unlocked,
+            completedContracts=preferences.getStringSet("career_contracts",null)?.toSet().orEmpty()
+        )
+        val initialMissions=preferences.getStringSet("flight_achievements",null)?.toSet().orEmpty()
         setContent{
             Box(Modifier.fillMaxSize().background(Bg).windowInsetsPadding(WindowInsets.safeDrawing)){
-                OrbitalFoundryApp(showTutorialOnStart=showTutorial,onTutorialComplete={
-                    preferences.edit().putBoolean("tutorial_seen",true).apply()
-                })
+                OrbitalFoundryApp(
+                    showTutorialOnStart=showTutorial,
+                    initialRocket=initialRocket,
+                    initialMissions=initialMissions,
+                    initialCareer=initialCareer,
+                    onTutorialComplete={preferences.edit().putBoolean("tutorial_seen",true).apply()},
+                    onSaveRocket={rocket->preferences.edit().putString("rocket_parts",rocket.parts.joinToString(","){it.name}).apply()},
+                    onSaveMissions={missions->preferences.edit().putStringSet("flight_achievements",missions.toMutableSet()).apply()},
+                    onSaveCareer={career->
+                        preferences.edit()
+                            .putInt("career_funds",career.funds)
+                            .putInt("career_science",career.science)
+                            .putInt("career_reputation",career.reputation)
+                            .putStringSet("career_unlocked",career.unlocked.toMutableSet())
+                            .putStringSet("career_contracts",career.completedContracts.toMutableSet())
+                            .apply()
+                    }
+                )
             }
         }
     }
 }
 
 @Composable
-fun OrbitalFoundryApp(showTutorialOnStart:Boolean,onTutorialComplete:()->Unit){
+fun OrbitalFoundryApp(
+    showTutorialOnStart:Boolean,
+    initialRocket:Rocket,
+    initialMissions:Set<String>,
+    initialCareer:CareerState,
+    onTutorialComplete:()->Unit,
+    onSaveRocket:(Rocket)->Unit,
+    onSaveMissions:(Set<String>)->Unit,
+    onSaveCareer:(CareerState)->Unit
+){
     MaterialTheme(colorScheme=darkColorScheme(background=Bg,surface=Panel,primary=Violet,onBackground=Ink,onSurface=Ink)){
         var screen by rememberSaveable{mutableStateOf(if(showTutorialOnStart)Screen.TUTORIAL else Screen.HOME)}
-        var rocket by remember{mutableStateOf(starterRocket())}
+        var rocket by remember{mutableStateOf(initialRocket)}
         var sim by remember{mutableStateOf<SimState?>(null)}
-        var missions by remember{mutableStateOf(setOf<String>())}
-        var career by remember{mutableStateOf(CareerState())}
+        var missions by remember{mutableStateOf(initialMissions)}
+        var career by remember{mutableStateOf(initialCareer)}
+        LaunchedEffect(rocket){onSaveRocket(rocket)}
+        LaunchedEffect(missions){onSaveMissions(missions)}
+        LaunchedEffect(career){onSaveCareer(career)}
         when(screen){
             Screen.HOME->HomeScreen(rocket,missions,career,
                 {screen=Screen.BUILD},
@@ -213,14 +254,20 @@ private fun addPartInUsefulPosition(rocket:Rocket,part:PartType):Rocket{
     val list=rocket.parts.toMutableList()
     when(part){
         PartType.DECOUPLER->{ return addUpperStage(rocket) }
+        PartType.NOSE->list.add(0,part)
+        PartType.CAPSULE->{
+            val nose=list.indexOfLast{it==PartType.NOSE}
+            list.add(if(nose>=0)nose+1 else 0,part)
+        }
+        PartType.FAIRING->{
+            val capsule=list.indexOfFirst{it==PartType.CAPSULE}
+            val nose=list.indexOfLast{it==PartType.NOSE}
+            list.add(if(capsule>=0)capsule else if(nose>=0)nose+1 else 0,part)
+        }
         PartType.TANK,PartType.ENGINE,PartType.VACUUM_ENGINE,PartType.HEAVY_ENGINE,PartType.ION_ENGINE,PartType.ION_TANK,PartType.FIN->list.add(part)
         PartType.DOCKING_PORT,PartType.RCS,PartType.PROBE_CORE,PartType.SOLAR,PartType.PARACHUTE,PartType.HEATSHIELD,PartType.LANDING_LEGS->{
             val firstTank=list.indexOfFirst{it==PartType.TANK}
             val insertAt=if(firstTank>=0)firstTank else list.size
-            list.add(insertAt,part)
-        }
-        else->{
-            val insertAt=list.indexOfFirst{it==PartType.TANK}.let{if(it<0)list.size else it}
             list.add(insertAt,part)
         }
     }
@@ -558,8 +605,8 @@ private fun BuilderScreen(rocket:Rocket,unlockedTech:Set<String>,onAdd:(PartType
         Spacer(Modifier.height(8.dp))
         Text("STACK",color=Muted,fontSize=11.sp,fontWeight=FontWeight.Black)
         LazyColumn(verticalArrangement=Arrangement.spacedBy(6.dp),modifier=Modifier.weight(1f)){
-            itemsIndexed(rocket.parts.asReversed()){visualIndex,p->
-                val originalIndex=rocket.parts.lastIndex-visualIndex
+            itemsIndexed(rocket.parts){visualIndex,p->
+                val originalIndex=visualIndex
                 Surface(color=Panel,shape=RoundedCornerShape(12.dp),modifier=Modifier.fillMaxWidth()){
                     Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.padding(horizontal=8.dp,vertical=5.dp)){
                         RocketPartThumbnail(p)
@@ -568,8 +615,8 @@ private fun BuilderScreen(rocket:Rocket,unlockedTech:Set<String>,onAdd:(PartType
                             Text("M %.1f · F %.1f · T %.0f".format(p.mass,p.fuel,p.thrust),color=Muted,fontSize=10.sp,lineHeight=12.sp)
                         }
                         Column(horizontalAlignment=Alignment.CenterHorizontally){
-                            Text("↑",fontSize=18.sp,color=Cyan,modifier=Modifier.clickable{onMove(originalIndex,1)}.padding(horizontal=5.dp))
-                            Text("↓",fontSize=18.sp,color=Cyan,modifier=Modifier.clickable{onMove(originalIndex,-1)}.padding(horizontal=5.dp))
+                            Text("↑",fontSize=18.sp,color=Cyan,modifier=Modifier.clickable{onMove(originalIndex,-1)}.padding(horizontal=5.dp))
+                            Text("↓",fontSize=18.sp,color=Cyan,modifier=Modifier.clickable{onMove(originalIndex,1)}.padding(horizontal=5.dp))
                         }
                         Text("×",fontSize=20.sp,color=Red,modifier=Modifier.clickable{onRemove(originalIndex)}.padding(horizontal=5.dp))
                     }
