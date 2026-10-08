@@ -9,11 +9,13 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.foundation.border
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
@@ -39,24 +41,26 @@ private val Green=Color(0xFF45E0A8)
 private val Orange=Color(0xFFFFB74D)
 private val Red=Color(0xFFFF5874)
 
-enum class Screen{HOME,BUILD,MISSIONS,FLIGHT,MAP}
+enum class Screen{HOME,BUILD,MISSIONS,FLIGHT,MAP,TUTORIAL}
 enum class Guidance{MANUAL,PROGRADE,RETROGRADE,HOLD_ORBIT}
 
-data class V2(val x:Double,val y:Double){
-    operator fun plus(o:V2)=V2(x+o.x,y+o.y)
-    operator fun minus(o:V2)=V2(x-o.x,y-o.y)
-    operator fun times(k:Double)=V2(x*k,y*k)
-    fun mag()=sqrt(x*x+y*y)
-}
-
-enum class PartType(val title:String,val emoji:String,val mass:Double,val fuel:Double,val thrust:Double,val color:Color){
+enum class PartType(
+    val title:String,val emoji:String,val mass:Double,val fuel:Double,val thrust:Double,
+    val color:Color,val ispSec:Double=0.0
+){
     NOSE("Nose Cone","◢",1.5,0.0,0.0,Violet),
     CAPSULE("Crew Capsule","◉",3.5,0.0,0.0,Cyan),
-    TANK("Fuel Tank","▣",4.0,16.0,0.0,Color(0xFF6C7BFF)),
-    ENGINE("Vector Engine","▲",2.5,0.0,220.0,Orange),
+    PROBE_CORE("Probe Core","◈",0.8,0.0,0.0,Color(0xFF8AD4FF)),
+    TANK("Fuel Tank","▣",4.0,24.0,0.0,Color(0xFF6C7BFF)),
+    ENGINE("Merlin-class Engine","▲",2.5,0.0,950.0,Orange,360.0),
+    DECOUPLER("Stage Decoupler","⊙",0.8,0.0,0.0,Red),
     FIN("Control Fins","⌁",1.0,0.0,0.0,Green),
-    DECOUPLER("Decoupler","⊙",0.8,0.0,0.0,Red),
-    SOLAR("Solar Panel","✦",0.7,0.0,0.0,Color(0xFFFFD54F))
+    PARACHUTE("Recovery Parachute","⬙",1.2,0.0,0.0,Color(0xFFFF7D90)),
+    HEATSHIELD("Heat Shield","⬡",1.8,0.0,0.0,Color(0xFFFF9259)),
+    LANDING_LEGS("Landing Legs","⌁",1.2,0.0,0.0,Color(0xFFC4D5E6)),
+    RCS("RCS Thrusters","✣",0.6,0.0,0.0,Color(0xFFB69CFF)),
+    DOCKING_PORT("Docking Port","⊕",0.8,0.0,0.0,Color(0xFF67F3D0)),
+    SOLAR("Solar Panels","✦",0.7,0.0,0.0,Color(0xFFFFD54F))
 }
 
 data class Rocket(val parts:List<PartType>){
@@ -65,52 +69,130 @@ data class Rocket(val parts:List<PartType>){
     val thrust get()=parts.sumOf{it.thrust}
     val hasEngine get()=parts.any{it==PartType.ENGINE}
     val hasCapsule get()=parts.any{it==PartType.CAPSULE}
+    val hasDockingPort get()=parts.any{it==PartType.DOCKING_PORT}
+    val hasRcs get()=parts.any{it==PartType.RCS}
+    val hasParachute get()=parts.any{it==PartType.PARACHUTE}
     val deltaV get():Double{
-        val m0=(dryMass+fuel).coerceAtLeast(0.1)
-        val m1=dryMass.coerceAtLeast(0.1)
-        return if(hasEngine&&fuel>0)9.6*ln(m0/m1) else 0.0
+        var remaining=parts
+        var dv=0.0
+        repeat(8){
+            if(remaining.isEmpty())return@repeat
+            val separator=remaining.indexOfLast{it==PartType.DECOUPLER}
+            val active=activeStageParts(remaining)
+            val wet=remaining.sumOf{it.mass+it.fuel}
+            val propellant=active.sumOf{it.fuel}
+            val engines=active.filter{it.thrust>0.0}
+            val thrust=engines.sumOf{it.thrust}
+            val isp=if(thrust>0.0)engines.sumOf{it.thrust*it.ispSec}/thrust else 0.0
+            if(thrust>0.0&&isp>0.0&&propellant>0.0&&wet>propellant){
+                dv+=(isp*G0/1000.0)*ln(wet/(wet-propellant))
+            }
+            if(separator<0) return@repeat
+            remaining=remaining.take(separator)
+        }
+        return dv
     }
 }
 
 data class SimState(
-    val pos:V2=V2(0.0,53.0),
-    val vel:V2=V2(6.1,0.0),
+    val pos:V2=V2(0.0,EARTH_RADIUS_KM+0.02),
+    val vel:V2=V2(0.0,0.0),
     val angle:Double=PI/2,
-    val throttle:Double=.95,
+    val throttle:Double=1.0,
     val fuel:Double,
     val mass:Double,
     val thrust:Double,
+    val parts:List<PartType>,
     val time:Double=0.0,
     val stage:Int=1,
     val guidance:Guidance=Guidance.MANUAL,
     val crashed:Boolean=false,
     val landed:Boolean=false,
+    val heat:Double=0.0,
+    val maxDynamicPressureKpa:Double=0.0,
+    val parachuteDeployed:Boolean=false,
+    val targetPos:V2?=null,
+    val targetVel:V2?=null,
+    val docking:Boolean=false,
+    val docked:Boolean=false,
     val trail:List<V2> = emptyList()
 )
 
 class MainActivity:ComponentActivity(){
     override fun onCreate(savedInstanceState:Bundle?){
         super.onCreate(savedInstanceState)
-        setContent{OrbitalFoundryApp()}
+        val preferences=getSharedPreferences("orbital_foundry", MODE_PRIVATE)
+        val showTutorial=!preferences.getBoolean("tutorial_seen",false)
+        setContent{
+            Box(Modifier.fillMaxSize().background(Bg).windowInsetsPadding(WindowInsets.safeDrawing)){
+                OrbitalFoundryApp(showTutorialOnStart=showTutorial,onTutorialComplete={
+                    preferences.edit().putBoolean("tutorial_seen",true).apply()
+                })
+            }
+        }
     }
 }
 
 @Composable
-fun OrbitalFoundryApp(){
+fun OrbitalFoundryApp(showTutorialOnStart:Boolean,onTutorialComplete:()->Unit){
     MaterialTheme(colorScheme=darkColorScheme(background=Bg,surface=Panel,primary=Violet,onBackground=Ink,onSurface=Ink)){
-        var screen by remember{mutableStateOf(Screen.HOME)}
-        var rocket by remember{mutableStateOf(Rocket(listOf(PartType.NOSE,PartType.CAPSULE,PartType.TANK,PartType.ENGINE,PartType.FIN)))}
+        var screen by rememberSaveable{mutableStateOf(if(showTutorialOnStart)Screen.TUTORIAL else Screen.HOME)}
+        var rocket by rememberSaveable{mutableStateOf(Rocket(listOf(
+            PartType.NOSE,PartType.CAPSULE,PartType.TANK,PartType.ENGINE,
+            PartType.DECOUPLER,PartType.TANK,PartType.ENGINE,PartType.FIN,
+            PartType.PARACHUTE,PartType.HEATSHIELD
+        )))}
         var sim by remember{mutableStateOf<SimState?>(null)}
-        var missions by remember{mutableStateOf(setOf<String>())}
-        var career by remember{mutableStateOf(CareerState())}
+        var missions by rememberSaveable{mutableStateOf(setOf<String>())}
+        var career by rememberSaveable{mutableStateOf(CareerState())}
         when(screen){
-            Screen.HOME->HomeScreen(rocket,missions,career,{screen=Screen.BUILD},{if(rocket.hasEngine&&rocket.hasCapsule){sim=launchState(rocket);screen=Screen.FLIGHT}},{screen=Screen.MISSIONS})
-            Screen.BUILD->BuilderScreen(rocket,{rocket=rocket.copy(parts=rocket.parts+it)},{p->val l=rocket.parts.toMutableList();val i=l.indexOfLast{it==p};if(i>=0)l.removeAt(i);rocket=rocket.copy(parts=l)},{rocket=Rocket(emptyList())},{screen=Screen.HOME},{if(rocket.hasEngine&&rocket.hasCapsule){sim=launchState(rocket);screen=Screen.FLIGHT}})
+            Screen.HOME->HomeScreen(rocket,missions,career,
+                {screen=Screen.BUILD},
+                {if(rocket.hasEngine&&rocket.hasCapsule){sim=launchState(rocket);screen=Screen.FLIGHT}},
+                {screen=Screen.MISSIONS},
+                {screen=Screen.TUTORIAL},
+                {if(rocket.hasDockingPort&&rocket.hasRcs){sim=beginDockingPractice(rocket);screen=Screen.FLIGHT}}
+            )
+            Screen.BUILD->BuilderScreen(rocket,
+                {p->rocket=addPartInUsefulPosition(rocket,p)},
+                {p->val l=rocket.parts.toMutableList();val i=l.indexOfLast{it==p};if(i>=0)l.removeAt(i);rocket=rocket.copy(parts=l)},
+                {index,delta->
+                    val l=rocket.parts.toMutableList()
+                    val destination=(index+delta).coerceIn(0,l.lastIndex)
+                    if(destination!=index){val part=l.removeAt(index);l.add(destination,part);rocket=rocket.copy(parts=l)}
+                },
+                {rocket=Rocket(emptyList())},
+                {screen=Screen.HOME},
+                {if(rocket.hasEngine&&rocket.hasCapsule){sim=launchState(rocket);screen=Screen.FLIGHT}}
+            )
             Screen.MISSIONS->MissionScreen(missions,career,{career=it},{screen=Screen.HOME})
-            Screen.FLIGHT->{val s=sim;if(s!=null)FlightScreen(s,{next->sim=next;missions=missions+missionCompletions(next)},{screen=Screen.MAP},{screen=Screen.HOME}){name->missions=missions+name}}
+            Screen.FLIGHT->{val s=sim;if(s!=null)FlightScreen(s,
+                {next->sim=next;missions=missions+missionCompletions(next)},
+                {screen=Screen.MAP},{screen=Screen.HOME},
+                {name->missions=missions+name}
+            )}
             Screen.MAP->{val s=sim;if(s!=null)MapScreen(s,{screen=Screen.FLIGHT})}
+            Screen.TUTORIAL->TutorialScreen({onTutorialComplete();screen=Screen.HOME},{onTutorialComplete();screen=Screen.HOME})
         }
     }
+}
+
+private fun addPartInUsefulPosition(rocket:Rocket,part:PartType):Rocket{
+    val list=rocket.parts.toMutableList()
+    when(part){
+        PartType.DECOUPLER->{
+            val tankIndex=list.indexOfLast{it==PartType.TANK}
+            val engineIndex=list.indexOfLast{it==PartType.ENGINE}
+            val at=if(tankIndex>=0)tankIndex else if(engineIndex>=0)engineIndex else list.size
+            list.add(at,part)
+        }
+        PartType.TANK,PartType.ENGINE,PartType.FIN->list.add(part)
+        else->{
+            val insertAt=list.indexOfFirst{it==PartType.DECOUPLER}.let{if(it<0)list.size else it}
+            list.add(insertAt,part)
+        }
+    }
+    return rocket.copy(parts=list)
 }
 
 @Composable
