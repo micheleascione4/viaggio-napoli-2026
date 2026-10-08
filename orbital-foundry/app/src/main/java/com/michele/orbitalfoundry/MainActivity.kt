@@ -943,7 +943,7 @@ private fun FlightScreen(
             if(sim.trail.size>1){
                 val path=Path()
                 sim.trail.forEachIndexed{idx,p->
-                    val q=Offset(center.x+cameraPan.x+((p.x-sim.pos.x)*sceneScale),center.y+cameraPan.y-((p.y-sim.pos.y)*sceneScale))
+                    val q=Offset(center.x+cameraPan.x+((p.x-sim.pos.x)*sceneScale).toFloat(),center.y+cameraPan.y-((p.y-sim.pos.y)*sceneScale).toFloat())
                     if(idx==0)path.moveTo(q.x,q.y)else path.lineTo(q.x,q.y)
                 }
                 drawPath(path,color=Color(0x7745D7FF),style=Stroke(width=5f))
