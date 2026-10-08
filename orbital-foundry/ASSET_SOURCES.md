@@ -1,6 +1,6 @@
 # Orbital Foundry — free art sources
 
-Reviewed on 2026-10-08. The new in-game part illustrations are original Compose Canvas vector drawings included in the app code; this keeps the APK self-contained and avoids copying the look or UI of another game. These are the vetted sources for the next content pass:
+Reviewed on 2026-10-09. Orbital Foundry uses original Compose Canvas part illustrations and downloads the following surface maps during the Android CI build, then bundles them in the APK so the app needs no network while playing. Menu proportions and control layout are inspired by genre conventions, not copied from another game's artwork or code:
 
 ## 2D parts, rockets, satellites and effects
 
@@ -20,6 +20,20 @@ Reviewed on 2026-10-08. The new in-game part illustrations are original Compose 
   - Use the display family such as “Rocket” for headings only; keep telemetry and dense controls highly legible.
   - Confirm the pack's CC0 notice and retain the included license in imported assets.
 
+## Planet surface maps bundled in the APK
+
+- **Earth — NASA Blue Marble, land/ocean/ice, 2048 px**  
+  Source: https://visibleearth.nasa.gov/images/57723/the-blue-marble  
+  Build URL: https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57723/land_ocean_ice_2048.png  
+  NASA imagery is generally available for factual/educational/game-simulation use subject to NASA media rules. Do not use NASA logos or imply endorsement. Read the current guidelines: https://www.nasa.gov/nasa-brand-center/images-and-media/
+- **Mars — JPL Solar System Simulator / USGS Viking map**  
+  Source page: https://space.jpl.nasa.gov/tmaps/mars.html  
+  Build URL: https://space.jpl.nasa.gov/tmaps/pix/mar0kuu2.jpg  
+  The texture table attributes this map to Viking / Caltech-JPL-USGS. Retain that attribution in project documentation; it is a game visual map, not a scientific dataset.
+- **World map art — Kenney Planets (CC0 1.0)**  
+  https://kenney-assets.itch.io/planets  
+  Useful for future sprite variants; its visible license states CC0 1.0 Universal.
+
 ## Later 3D models / real-world spacecraft references
 
 - **NASA 3D Resources**: https://science.nasa.gov/3d-resources/
@@ -30,5 +44,5 @@ Reviewed on 2026-10-08. The new in-game part illustrations are original Compose 
 
 1. Prefer standalone PNG/SVG sources over sprite sheets when possible; if using a sheet, crop each part into a named asset and preserve its license file.
 2. Normalize sizes and pivots so each part aligns to the rocket stack.
-3. Optimize textures for mobile memory and include local assets in the APK; the game must not depend on network access for art.
+3. Download the Earth and Mars texture maps in `.github/workflows/build-orbital-foundry.yml` and bundle them under `app/src/main/assets/textures/`; the game must not depend on network access while playing.
 4. Keep assets and UI original; references are for production quality and licensing, not for copying existing games.
