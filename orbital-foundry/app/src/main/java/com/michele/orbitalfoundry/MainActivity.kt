@@ -375,7 +375,7 @@ private fun MainNavigationBar(current:Screen,mapAvailable:Boolean,onNavigate:(Sc
                 colors=NavigationBarItemDefaults.colors(
                     selectedIconColor=Cyan,
                     selectedTextColor=Cyan,
-                    indicatorColor=Color(0xFF15354B),
+                    selectedIndicatorColor=Color(0xFF15354B),
                     unselectedIconColor=Muted,
                     unselectedTextColor=Muted,
                     disabledIconColor=Color(0xFF39495B),
@@ -463,85 +463,124 @@ private fun Shell(title:String,subtitle:String,onBack:()->Unit,content:@Composab
     }
 }
 
+
 @Composable
 private fun HomeScreen(
     rocket:Rocket,missions:Set<String>,career:CareerState,
     onBuild:()->Unit,onLaunch:()->Unit,onMissions:()->Unit,onTutorial:()->Unit,
     onSandbox:()->Unit,onDocking:()->Unit
 ){
-    val page=Color(0xFF07111F)
-    val card=Color(0xFF0E1B2A)
-    val dark=Color(0xFFEAF3FC)
-    val secondary=Color(0xFF8DA6BC)
-    val blue=Color(0xFF45D7FF)
-    Column(Modifier.fillMaxSize().background(page).verticalScroll(rememberScrollState()).padding(horizontal=15.dp,vertical=10.dp)){
+    val bg=Color(0xFF070C14)
+    val surface=Color(0xFF101A28)
+    val ink=Color(0xFFEAF2FB)
+    val muted=Color(0xFF91A4B9)
+    val accent=Color(0xFF66B9E9)
+    Column(Modifier.fillMaxSize().background(bg).verticalScroll(rememberScrollState()).padding(horizontal=16.dp,vertical=12.dp)){
         Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.fillMaxWidth()){
             Column(Modifier.weight(1f)){
-                Text("ORVITARY",fontSize=25.sp,fontWeight=FontWeight.Black,lineHeight=29.sp,letterSpacing=1.1.sp,color=dark)
-                Text("BUILD  ·  LAUNCH  ·  EXPLORE",color=blue,fontSize=10.sp,fontWeight=FontWeight.Bold,letterSpacing=1.2.sp)
+                Row(verticalAlignment=Alignment.CenterVertically){
+                    Box(Modifier.size(7.dp).background(Color(0xFF63DDB0),CircleShape))
+                    Text(" ORBITAL PROGRAM  /  01",fontSize=9.sp,color=muted,fontWeight=FontWeight.Black,letterSpacing=1.1.sp)
+                }
+                Text("ORVITARY",fontSize=28.sp,fontWeight=FontWeight.Black,lineHeight=32.sp,letterSpacing=1.5.sp,color=ink)
+                Text("DESIGN. LAUNCH. EXPLORE.",color=accent,fontSize=10.sp,fontWeight=FontWeight.Bold,letterSpacing=1.1.sp)
             }
-            TextButton(onClick=onTutorial,contentPadding=PaddingValues(horizontal=10.dp,vertical=6.dp),colors=ButtonDefaults.textButtonColors(contentColor=dark)){
-                Text("GUIDE",fontSize=11.sp,fontWeight=FontWeight.Black)
+            TextButton(onClick=onTutorial,contentPadding=PaddingValues(horizontal=10.dp,vertical=7.dp),colors=ButtonDefaults.textButtonColors(contentColor=ink)){
+                Text("FLIGHT SCHOOL",fontSize=9.sp,fontWeight=FontWeight.Black)
             }
         }
-        Spacer(Modifier.height(9.dp))
-        Box(Modifier.fillMaxWidth().height(218.dp).background(Color(0xFF0B1B2D),RoundedCornerShape(10.dp))){
+        Spacer(Modifier.height(12.dp))
+        Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.fillMaxWidth().padding(bottom=6.dp)){
+            Text("CURRENT VEHICLE",fontSize=10.sp,color=muted,fontWeight=FontWeight.Black,letterSpacing=1.2.sp)
+            Spacer(Modifier.weight(1f))
+            Surface(color=if(rocket.hasEngine&&rocket.hasCapsule)Color(0xFF123329) else Color(0xFF3A2630),shape=RoundedCornerShape(30.dp)){
+                Text(if(rocket.hasEngine&&rocket.hasCapsule)"● READY" else "● INCOMPLETE",fontSize=9.sp,color=if(rocket.hasEngine&&rocket.hasCapsule)Color(0xFF63DDB0) else Color(0xFFFF9AAB),fontWeight=FontWeight.Black,modifier=Modifier.padding(horizontal=10.dp,vertical=5.dp))
+            }
+        }
+        Box(Modifier.fillMaxWidth().height(232.dp).background(Color(0xFF0C1A29),RoundedCornerShape(14.dp)).border(1.dp,Color(0xFF243B51),RoundedCornerShape(14.dp))){
             RocketStackPreview(rocket,Modifier.fillMaxSize())
-            Surface(color=Color(0xEE14283B),shape=RoundedCornerShape(bottomEnd=8.dp),modifier=Modifier.align(Alignment.TopStart)){
-                Column(Modifier.padding(horizontal=10.dp,vertical=7.dp)){
-                    Text("ACTIVE VEHICLE",fontSize=9.sp,color=blue,fontWeight=FontWeight.Black,letterSpacing=.9.sp)
-                    Text(if(rocket.hasEngine&&rocket.hasCapsule)"READY TO LAUNCH" else "INCOMPLETE ROCKET",fontSize=13.sp,fontWeight=FontWeight.Black,color=dark)
+            Surface(color=Color(0xDD091522),shape=RoundedCornerShape(bottomEnd=11.dp),modifier=Modifier.align(Alignment.TopStart)){
+                Column(Modifier.padding(horizontal=11.dp,vertical=8.dp)){
+                    Text("ACTIVE BLUEPRINT",fontSize=8.sp,color=accent,fontWeight=FontWeight.Black,letterSpacing=1.sp)
+                    Text(if(rocket.hasEngine&&rocket.hasCapsule)"Launch vehicle" else "Unfinished assembly",fontSize=13.sp,color=ink,fontWeight=FontWeight.Black)
                 }
             }
-            Row(horizontalArrangement=Arrangement.SpaceEvenly,verticalAlignment=Alignment.CenterVertically,modifier=Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(Color(0xEE0E1B2A)).padding(horizontal=7.dp,vertical=7.dp)){
-                Column(horizontalAlignment=Alignment.CenterHorizontally,modifier=Modifier.weight(1f)){
-                    Text("MASS",fontSize=9.sp,color=secondary,fontWeight=FontWeight.Bold)
-                    Text("%.1f t".format(rocket.dryMass+rocket.fuel),fontSize=12.sp,fontWeight=FontWeight.Black,color=dark)
-                }
-                Column(horizontalAlignment=Alignment.CenterHorizontally,modifier=Modifier.weight(1f)){
-                    Text("FUEL",fontSize=9.sp,color=secondary,fontWeight=FontWeight.Bold)
-                    Text("%.0f t".format(rocket.fuel),fontSize=12.sp,fontWeight=FontWeight.Black,color=dark)
-                }
-                Column(horizontalAlignment=Alignment.CenterHorizontally,modifier=Modifier.weight(1f)){
-                    Text("ΔV",fontSize=9.sp,color=secondary,fontWeight=FontWeight.Bold)
-                    Text("%.2f km/s".format(rocket.deltaV),fontSize=12.sp,fontWeight=FontWeight.Black,color=blue)
+            Surface(color=Color(0xEE0A1420),shape=RoundedCornerShape(11.dp),modifier=Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(7.dp)){
+                Row(Modifier.padding(horizontal=8.dp,vertical=8.dp),verticalAlignment=Alignment.CenterVertically){
+                    Column(Modifier.weight(1f),horizontalAlignment=Alignment.CenterHorizontally){
+                        Text("WET MASS",fontSize=8.sp,color=muted,fontWeight=FontWeight.Bold)
+                        Text("%.1f t".format(rocket.dryMass+rocket.fuel),fontSize=12.sp,color=ink,fontWeight=FontWeight.Black)
+                    }
+                    Box(Modifier.width(1.dp).height(26.dp).background(Color(0xFF2A3D50)))
+                    Column(Modifier.weight(1f),horizontalAlignment=Alignment.CenterHorizontally){
+                        Text("PROPELLANT",fontSize=8.sp,color=muted,fontWeight=FontWeight.Bold)
+                        Text("%.0f t".format(rocket.fuel),fontSize=12.sp,color=ink,fontWeight=FontWeight.Black)
+                    }
+                    Box(Modifier.width(1.dp).height(26.dp).background(Color(0xFF2A3D50)))
+                    Column(Modifier.weight(1f),horizontalAlignment=Alignment.CenterHorizontally){
+                        Text("DELTA-V",fontSize=8.sp,color=muted,fontWeight=FontWeight.Bold)
+                        Text("%.2f km/s".format(rocket.deltaV),fontSize=12.sp,color=accent,fontWeight=FontWeight.Black)
+                    }
                 }
             }
         }
         Spacer(Modifier.height(10.dp))
-        Button(onClick=onBuild,modifier=Modifier.fillMaxWidth().height(49.dp),shape=RoundedCornerShape(8.dp),contentPadding=PaddingValues(10.dp),colors=ButtonDefaults.buttonColors(containerColor=blue,contentColor=Color(0xFF061321))){
-            Text("BUILD ROCKET",fontWeight=FontWeight.Black,letterSpacing=.7.sp)
+        Button(
+            onClick=onBuild,modifier=Modifier.fillMaxWidth().height(51.dp),shape=RoundedCornerShape(11.dp),
+            contentPadding=PaddingValues(12.dp),colors=ButtonDefaults.buttonColors(containerColor=accent,contentColor=Color(0xFF061522))
+        ){
+            Text("OPEN VEHICLE WORKSHOP    ↗",fontWeight=FontWeight.Black,letterSpacing=.6.sp,fontSize=12.sp)
         }
+        Spacer(Modifier.height(7.dp))
         Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()){
-            OutlinedButton(onClick=onSandbox,modifier=Modifier.weight(1f).height(46.dp),shape=RoundedCornerShape(8.dp),colors=ButtonDefaults.outlinedButtonColors(contentColor=dark)){
-                Text("SANDBOX",fontWeight=FontWeight.Black,fontSize=12.sp)
-            }
-            OutlinedButton(onClick=onLaunch,enabled=rocket.hasEngine&&rocket.hasCapsule,modifier=Modifier.weight(1f).height(46.dp),shape=RoundedCornerShape(8.dp),colors=ButtonDefaults.outlinedButtonColors(contentColor=blue)){
-                Text("QUICK LAUNCH",fontWeight=FontWeight.Black,fontSize=12.sp)
-            }
+            OutlinedButton(
+                onClick=onSandbox,modifier=Modifier.weight(1f).height(47.dp),shape=RoundedCornerShape(10.dp),
+                colors=ButtonDefaults.outlinedButtonColors(contentColor=ink),border=BorderStroke(1.dp,Color(0xFF385274))
+            ){Text("SANDBOX",fontWeight=FontWeight.Black,fontSize=11.sp)}
+            Button(
+                onClick=onLaunch,enabled=rocket.hasEngine&&rocket.hasCapsule,modifier=Modifier.weight(1f).height(47.dp),
+                shape=RoundedCornerShape(10.dp),colors=ButtonDefaults.buttonColors(containerColor=Color(0xFF17364A),contentColor=accent)
+            ){Text("QUICK LAUNCH  ▶",fontWeight=FontWeight.Black,fontSize=10.sp)}
         }
-        Spacer(Modifier.height(9.dp))
-        Surface(color=card,shape=RoundedCornerShape(10.dp),modifier=Modifier.fillMaxWidth()){
-            Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.padding(horizontal=11.dp,vertical=10.dp)){
-                Column(Modifier.weight(1f)){
-                    Text("CAREER",fontSize=10.sp,color=secondary,fontWeight=FontWeight.Black,letterSpacing=1.sp)
-                    Text("€${career.funds/1000}K   ·   ${career.science} SCI",fontSize=13.sp,fontWeight=FontWeight.Bold,color=dark)
-                    Text("${career.unlocked.size} technologies unlocked",fontSize=10.sp,color=secondary)
+        Spacer(Modifier.height(12.dp))
+        Surface(color=surface,shape=RoundedCornerShape(13.dp),modifier=Modifier.fillMaxWidth().border(1.dp,Color(0xFF24394E),RoundedCornerShape(13.dp))){
+            Column(Modifier.padding(13.dp)){
+                Row(verticalAlignment=Alignment.CenterVertically){
+                    Column(Modifier.weight(1f)){
+                        Text("CAREER CONTROL",fontSize=10.sp,color=accent,fontWeight=FontWeight.Black,letterSpacing=1.1.sp)
+                        Text("Research, contracts and progression",fontSize=12.sp,color=ink,fontWeight=FontWeight.SemiBold)
+                    }
+                    TextButton(onClick=onMissions,contentPadding=PaddingValues(horizontal=7.dp,vertical=4.dp)){Text("OPEN  ↗",fontSize=10.sp,fontWeight=FontWeight.Black,color=accent)}
                 }
-                Button(onClick=onMissions,shape=RoundedCornerShape(7.dp),contentPadding=PaddingValues(horizontal=10.dp,vertical=8.dp),colors=ButtonDefaults.buttonColors(containerColor=Color(0xFF18344B),contentColor=dark)){
-                    Text("TECH TREE  →",fontSize=10.sp,fontWeight=FontWeight.Black)
+                Spacer(Modifier.height(9.dp))
+                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(7.dp)){
+                    Column(Modifier.weight(1f).background(Color(0xFF0A1420),RoundedCornerShape(9.dp)).padding(9.dp)){
+                        Text("FUNDS",fontSize=8.sp,color=muted,fontWeight=FontWeight.Bold)
+                        Text("€"+(career.funds/1000)+"K",fontSize=16.sp,color=ink,fontWeight=FontWeight.Black)
+                    }
+                    Column(Modifier.weight(1f).background(Color(0xFF0A1420),RoundedCornerShape(9.dp)).padding(9.dp)){
+                        Text("SCIENCE",fontSize=8.sp,color=muted,fontWeight=FontWeight.Bold)
+                        Text(career.science.toString()+" SCI",fontSize=16.sp,color=ink,fontWeight=FontWeight.Black)
+                    }
+                    Column(Modifier.weight(1f).background(Color(0xFF0A1420),RoundedCornerShape(9.dp)).padding(9.dp)){
+                        Text("TECH",fontSize=8.sp,color=muted,fontWeight=FontWeight.Bold)
+                        Text(career.unlocked.size.toString(),fontSize=16.sp,color=ink,fontWeight=FontWeight.Black)
+                    }
+                }
+                Spacer(Modifier.height(9.dp))
+                Row(verticalAlignment=Alignment.CenterVertically){
+                    Text("MISSION RECORD",fontSize=9.sp,color=muted,fontWeight=FontWeight.Black,letterSpacing=.8.sp)
+                    Spacer(Modifier.weight(1f))
+                    Text(missions.size.toString()+" achievements",fontSize=10.sp,color=ink,fontWeight=FontWeight.Bold)
+                }
+                Spacer(Modifier.height(5.dp))
+                Row(horizontalArrangement=Arrangement.spacedBy(7.dp),modifier=Modifier.fillMaxWidth()){
+                    OutlinedButton(onClick=onMissions,modifier=Modifier.weight(1f).height(38.dp),contentPadding=PaddingValues(horizontal=4.dp),shape=RoundedCornerShape(8.dp),colors=ButtonDefaults.outlinedButtonColors(contentColor=ink)){Text("CONTRACTS + TECH",fontWeight=FontWeight.Black,fontSize=9.sp)}
+                    OutlinedButton(onClick=onDocking,enabled=rocket.hasDockingPort&&rocket.hasRcs,modifier=Modifier.weight(1f).height(38.dp),contentPadding=PaddingValues(horizontal=4.dp),shape=RoundedCornerShape(8.dp),colors=ButtonDefaults.outlinedButtonColors(contentColor=ink)){Text("DOCKING RANGE",fontWeight=FontWeight.Black,fontSize=9.sp)}
                 }
             }
         }
         Spacer(Modifier.height(8.dp))
-        Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()){
-            OutlinedButton(onClick=onMissions,modifier=Modifier.weight(1f).height(42.dp),shape=RoundedCornerShape(8.dp),colors=ButtonDefaults.outlinedButtonColors(contentColor=dark)){
-                Text("MISSIONS  (${missions.size})",fontSize=10.sp,fontWeight=FontWeight.Bold)
-            }
-            OutlinedButton(onClick=onDocking,enabled=rocket.hasDockingPort&&rocket.hasRcs,modifier=Modifier.weight(1f).height(42.dp),shape=RoundedCornerShape(8.dp),colors=ButtonDefaults.outlinedButtonColors(contentColor=dark)){
-                Text("DOCKING RANGE",fontSize=10.sp,fontWeight=FontWeight.Bold)
-            }
-        }
     }
 }
 @Composable
@@ -1135,51 +1174,48 @@ private fun StageEditorDialog(
     )
 }
 
+
 @Composable
 private fun TutorialScreen(onFinish:()->Unit,onSkip:()->Unit){
     var page by rememberSaveable{mutableIntStateOf(0)}
     val lessons=listOf(
-        Triple("01 / ASSEMBLA","Trascina i componenti dalla barra sinistra al razzo. Trascina i moduli già montati per cambiarne l'ordine.","Tocca un pezzo per aggiungerlo automaticamente."),
-        Triple("02 / LANCIA","Premi LAUNCH. Usa i controlli laterali per inclinare il razzo e STAGE per separare uno stadio.","In Sandbox tutti i pezzi sono disponibili senza limiti di tecnologia."),
-        Triple("03 / RAGGIUNGI L'ORBITA","Sali, controlla la mappa e inclina gradualmente verso l'orizzonte. Una buona orbita ha periapside e apoapside sopra l'atmosfera.","Non serve leggere tutto prima di giocare: torna qui dal menu quando ti serve.")
+        Triple("01  /  BUILD","Choose a component category at the bottom of the workshop. Tap a part to attach it, or drag it onto the rocket to choose where it goes.","Installed parts can be reordered by dragging the rocket stack, or precisely edited in STACK and STAGES."),
+        Triple("02  /  LAUNCH","Build a capsule, fuel tanks and an engine, then press LAUNCH. STAGE separates the lower section when its fuel is spent.","Sandbox unlocks every component. Career keeps the research tree and contracts available alongside it."),
+        Triple("03  /  REACH ORBIT","Climb through the atmosphere, then gradually tilt toward the horizon. Open MAP to inspect your path and your orbital trajectory.","A stable orbit needs both periapsis and apoapsis above the atmosphere. Return here whenever you need a reminder.")
     )
     val lesson=lessons[page]
-    val dark=Color(0xFF20374D)
-    val blue=Color(0xFF3479B5)
-    Column(Modifier.fillMaxSize().background(Color(0xFFE8F0F7)).padding(horizontal=16.dp,vertical=12.dp)){
+    val ink=Color(0xFFEAF2FB)
+    val muted=Color(0xFF91A4B9)
+    val accent=Color(0xFF66B9E9)
+    Column(Modifier.fillMaxSize().background(Color(0xFF070C14)).padding(horizontal=16.dp,vertical=13.dp)){
         Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.fillMaxWidth()){
             Column(Modifier.weight(1f)){
-                Text("QUICK GUIDE",fontSize=11.sp,color=blue,fontWeight=FontWeight.Black,letterSpacing=1.3.sp)
-                Text("Impara giocando",fontSize=25.sp,fontWeight=FontWeight.Black,color=dark)
+                Text("FLIGHT SCHOOL",fontSize=10.sp,color=accent,fontWeight=FontWeight.Black,letterSpacing=1.4.sp)
+                Text("Learn by launching",fontSize=24.sp,fontWeight=FontWeight.Black,color=ink)
             }
-            Text("${page+1} / ${lessons.size}",fontSize=12.sp,color=Color(0xFF60758A),fontWeight=FontWeight.Bold)
+            Text((page+1).toString()+" / "+lessons.size,fontSize=12.sp,color=muted,fontWeight=FontWeight.Bold)
         }
         Spacer(Modifier.height(12.dp))
-        Surface(color=Color(0xFFFAFCFE),shape=RoundedCornerShape(12.dp),modifier=Modifier.fillMaxWidth().weight(1f)){
+        Surface(color=Color(0xFF101A28),shape=RoundedCornerShape(15.dp),modifier=Modifier.fillMaxWidth().weight(1f).border(1.dp,Color(0xFF263B50),RoundedCornerShape(15.dp))){
             Column(Modifier.padding(15.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
-                Surface(color=Color(0xFFE4EDF6),shape=RoundedCornerShape(9.dp),modifier=Modifier.fillMaxWidth()){
-                    Box(Modifier.height(135.dp).fillMaxWidth(),contentAlignment=Alignment.Center){
-                        RocketStackPreview(Rocket(listOf(PartType.NOSE,PartType.CAPSULE,PartType.HEATSHIELD,PartType.TANK,PartType.TANK,PartType.ENGINE)))
-                    }
+                Box(Modifier.fillMaxWidth().height(180.dp).background(Color(0xFF0A1928),RoundedCornerShape(11.dp)).border(1.dp,Color(0xFF29445D),RoundedCornerShape(11.dp))){
+                    RocketStackPreview(Rocket(listOf(PartType.NOSE,PartType.CAPSULE,PartType.HEATSHIELD,PartType.TANK,PartType.TANK,PartType.VACUUM_ENGINE,PartType.FIN)),Modifier.fillMaxSize())
+                    Text("ORVITARY  /  FIELD GUIDE",modifier=Modifier.align(Alignment.TopStart).padding(10.dp).background(Color(0xDD091522),RoundedCornerShape(6.dp)).padding(horizontal=8.dp,vertical=5.dp),fontSize=8.sp,color=accent,fontWeight=FontWeight.Black,letterSpacing=.7.sp)
                 }
-                Text(lesson.first,fontSize=11.sp,color=blue,fontWeight=FontWeight.Black,letterSpacing=.8.sp)
-                Text(lesson.second,fontSize=17.sp,lineHeight=23.sp,fontWeight=FontWeight.SemiBold,color=dark)
-                Text(lesson.third,fontSize=13.sp,lineHeight=18.sp,color=Color(0xFF63778B))
+                Text(lesson.first,fontSize=10.sp,color=accent,fontWeight=FontWeight.Black,letterSpacing=1.sp)
+                Text(lesson.second,fontSize=16.sp,lineHeight=22.sp,fontWeight=FontWeight.SemiBold,color=ink)
+                Text(lesson.third,fontSize=12.sp,lineHeight=17.sp,color=muted)
                 Spacer(Modifier.weight(1f))
                 Row(horizontalArrangement=Arrangement.spacedBy(5.dp),modifier=Modifier.fillMaxWidth()){
-                    lessons.indices.forEach{idx->
-                        Box(Modifier.weight(1f).height(4.dp).background(if(idx<=page)blue else Color(0xFFD5E1EB),RoundedCornerShape(4.dp)))
-                    }
+                    lessons.indices.forEach{idx->Box(Modifier.weight(1f).height(4.dp).background(if(idx<=page)accent else Color(0xFF29394B),RoundedCornerShape(4.dp)))}
                 }
             }
         }
         Spacer(Modifier.height(10.dp))
         Row(horizontalArrangement=Arrangement.spacedBy(7.dp),modifier=Modifier.fillMaxWidth()){
-            OutlinedButton(onClick=onSkip,modifier=Modifier.weight(1f).height(46.dp),shape=RoundedCornerShape(8.dp),colors=ButtonDefaults.outlinedButtonColors(contentColor=dark)){Text("SALTA",fontWeight=FontWeight.Bold)}
-            if(page>0) OutlinedButton(onClick={page--},modifier=Modifier.weight(1f).height(46.dp),shape=RoundedCornerShape(8.dp),colors=ButtonDefaults.outlinedButtonColors(contentColor=dark)){Text("INDIETRO",fontWeight=FontWeight.Bold,fontSize=10.sp)}
-            Button(onClick={if(page==lessons.lastIndex)onFinish() else page++},modifier=Modifier.weight(1.4f).height(46.dp),shape=RoundedCornerShape(8.dp),colors=ButtonDefaults.buttonColors(containerColor=blue,contentColor=Color.White)){
-                Text(if(page==lessons.lastIndex)"GIOCA" else "AVANTI",fontWeight=FontWeight.Black)
-            }
+            OutlinedButton(onClick=onSkip,modifier=Modifier.weight(1f).height(46.dp),shape=RoundedCornerShape(9.dp),colors=ButtonDefaults.outlinedButtonColors(contentColor=ink)){Text("SKIP",fontWeight=FontWeight.Bold)}
+            if(page>0)OutlinedButton(onClick={page--},modifier=Modifier.weight(1f).height(46.dp),shape=RoundedCornerShape(9.dp),colors=ButtonDefaults.outlinedButtonColors(contentColor=ink)){Text("BACK",fontWeight=FontWeight.Bold,fontSize=10.sp)}
+            Button(onClick={if(page==lessons.lastIndex)onFinish() else page++},modifier=Modifier.weight(1.4f).height(46.dp),shape=RoundedCornerShape(9.dp),colors=ButtonDefaults.buttonColors(containerColor=accent,contentColor=Color(0xFF061522))){Text(if(page==lessons.lastIndex)"START PLAYING" else "CONTINUE",fontWeight=FontWeight.Black,fontSize=10.sp)}
         }
     }
 }
