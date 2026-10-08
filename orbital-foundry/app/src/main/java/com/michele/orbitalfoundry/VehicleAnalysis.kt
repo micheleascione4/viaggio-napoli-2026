@@ -15,7 +15,7 @@ fun analyzeVehicle(rocket:Rocket):VehicleAnalysis{
     val mass=rocket.dryMass+rocket.fuel
     val twr=if(mass>0)rocket.thrust/(mass*9.81) else 0.0
     val dv=rocket.deltaV*1000.0
-    val altitude=((dv*1000.0).pow(2)/(2*9.80665)/1000.0).toInt()
+    val altitude=(dv*dv/(2*9.80665)/1000.0).toInt()
     val warnings=buildList{
         if(!rocket.hasEngine)add("No engine installed")
         if(!rocket.hasCapsule)add("No command capsule")
