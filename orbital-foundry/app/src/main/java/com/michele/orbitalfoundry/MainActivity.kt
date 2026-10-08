@@ -703,6 +703,7 @@ private fun BuilderScreen(
     onRemove:(Int)->Unit,onMove:(Int,Int)->Unit,onClear:()->Unit,onBack:()->Unit,onLaunch:()->Unit
 ){
     var showStack by rememberSaveable{mutableStateOf(false)}
+    var showStageEditor by rememberSaveable{mutableStateOf(false)}
     val effectiveUnlocked=if(sandboxMode)CareerDatabase.tech.map{it.id}.toSet() else unlockedTech
     var rootBounds by remember{mutableStateOf<Rect?>(null)}
     var viewportBounds by remember{mutableStateOf<Rect?>(null)}
@@ -792,8 +793,8 @@ private fun BuilderScreen(
             Row(horizontalArrangement=Arrangement.spacedBy(6.dp),verticalAlignment=Alignment.CenterVertically,modifier=Modifier.fillMaxWidth().background(Color(0xFF0B1B2D)).padding(horizontal=7.dp,vertical=5.dp)){
                 Text("${rocket.parts.size} PARTS",color=Color(0xFF8DA6BC),fontSize=9.sp,fontWeight=FontWeight.Black,modifier=Modifier.weight(1f))
                 OutlinedButton(onClick={showStack=true},contentPadding=PaddingValues(horizontal=8.dp,vertical=7.dp),shape=RoundedCornerShape(7.dp),colors=ButtonDefaults.outlinedButtonColors(contentColor=Color(0xFF45D7FF))){Text("STACK",fontWeight=FontWeight.Black,fontSize=9.sp)}
-                OutlinedButton(onClick=onAddStage,contentPadding=PaddingValues(horizontal=8.dp,vertical=7.dp),shape=RoundedCornerShape(7.dp),colors=ButtonDefaults.outlinedButtonColors(contentColor=Color(0xFF253F56))){Text("+ STAGE",fontWeight=FontWeight.Black,fontSize=9.sp)}
-                OutlinedButton(onClick=onClear,contentPadding=PaddingValues(horizontal=8.dp,vertical=7.dp),shape=RoundedCornerShape(7.dp),colors=ButtonDefaults.outlinedButtonColors(contentColor=Color(0xFF253F56))){Text("RESET",fontWeight=FontWeight.Black,fontSize=9.sp)}
+                OutlinedButton(onClick={showStageEditor=true},contentPadding=PaddingValues(horizontal=8.dp,vertical=7.dp),shape=RoundedCornerShape(7.dp),colors=ButtonDefaults.outlinedButtonColors(contentColor=Color(0xFF45D7FF))){Text("STAGES",fontWeight=FontWeight.Black,fontSize=9.sp)}
+                OutlinedButton(onClick=onClear,contentPadding=PaddingValues(horizontal=8.dp,vertical=7.dp),shape=RoundedCornerShape(7.dp),colors=ButtonDefaults.outlinedButtonColors(contentColor=Color(0xFF45D7FF))){Text("RESET",fontWeight=FontWeight.Black,fontSize=9.sp)}
             }
         }
         if(draggingPart!=null&&dragPosition!=null&&rootBounds!=null){
@@ -806,10 +807,19 @@ private fun BuilderScreen(
                 }
             }
         }
+        if(showStageEditor){
+            StageEditorDialog(
+                rocket=rocket,
+                onMove=onMove,
+                onRemove=onRemove,
+                onAddStage=onAddStage,
+                onClose={showStageEditor=false}
+            )
+        }
         if(showStack){
             AlertDialog(
                 onDismissRequest={showStack=false},
-                title={Text("ROCKET STACK · TOP TO BOTTOM",fontWeight=FontWeight.Black,color=Color(0xFF1D344A))},
+                title={Text("ROCKET STACK · TOP TO BOTTOM",fontWeight=FontWeight.Black,color=Color(0xFFEAF3FC))},
                 text={
                     if(rocket.parts.isEmpty())Text("The stack is empty. Drag a component from the parts rail.")
                     else LazyColumn(verticalArrangement=Arrangement.spacedBy(5.dp),modifier=Modifier.heightIn(max=390.dp)){
@@ -817,7 +827,7 @@ private fun BuilderScreen(
                             Row(Modifier.fillMaxWidth().background(Color(0xFF14283B),RoundedCornerShape(7.dp)).padding(horizontal=7.dp,vertical=5.dp),verticalAlignment=Alignment.CenterVertically){
                                 RocketPartThumbnail(part)
                                 Column(Modifier.weight(1f).padding(start=7.dp)){
-                                    Text(part.title,fontSize=12.sp,fontWeight=FontWeight.Bold,color=Color(0xFF1D344A),lineHeight=14.sp)
+                                    Text(part.title,fontSize=12.sp,fontWeight=FontWeight.Bold,color=Color(0xFFEAF3FC),lineHeight=14.sp)
                                     Text("M %.1f t · F %.1f t".format(part.mass,part.fuel),fontSize=10.sp,color=Color(0xFF8DA6BC))
                                 }
                                 Column(horizontalAlignment=Alignment.CenterHorizontally){
@@ -835,6 +845,101 @@ private fun BuilderScreen(
         }
     }
 }
+@Composable
+private fun StageEditorDialog(
+    rocket:Rocket,
+    onMove:(Int,Int)->Unit,
+    onRemove:(Int)->Unit,
+    onAddStage:()->Unit,
+    onClose:()->Unit
+){
+    val stages=remember(rocket.parts){
+        val ranges=mutableListOf<IntRange>()
+        var start=0
+        rocket.parts.forEachIndexed{index,part->
+            if(part==PartType.DECOUPLER){
+                ranges.add(start until index)
+                start=index+1
+            }
+        }
+        ranges.add(start until rocket.parts.size)
+        ranges
+    }
+    AlertDialog(
+        onDismissRequest=onClose,
+        title={Text("STAGE EDITOR",fontWeight=FontWeight.Black,color=Color(0xFFEAF3FC))},
+        text={
+            Column(Modifier.fillMaxWidth()){
+                Text("Stages ignite from the bottom up. Reorder parts within a stage; remove a separator to merge stages.",fontSize=12.sp,color=Color(0xFF9DB2C7),lineHeight=16.sp)
+                Spacer(Modifier.height(10.dp))
+                LazyColumn(
+                    modifier=Modifier.fillMaxWidth().heightIn(max=420.dp),
+                    verticalArrangement=Arrangement.spacedBy(8.dp)
+                ){
+                    items(stages.indices.reversed().toList(),key={it}){stageIndex->
+                        val range=stages[stageIndex]
+                        val stageNumber=stages.size-stageIndex
+                        Column(verticalArrangement=Arrangement.spacedBy(5.dp)){
+                            Surface(
+                                color=if(stageNumber==1)Color(0xFF15364A) else Color(0xFF132638),
+                                shape=RoundedCornerShape(9.dp),
+                                modifier=Modifier.fillMaxWidth()
+                            ){
+                                Column(Modifier.padding(9.dp)){
+                                    Row(verticalAlignment=Alignment.CenterVertically){
+                                        Text("STAGE $stageNumber",fontSize=12.sp,fontWeight=FontWeight.Black,color=Color(0xFFEAF3FC),modifier=Modifier.weight(1f))
+                                        if(stageNumber==1)Text("ACTIVE",fontSize=9.sp,fontWeight=FontWeight.Black,color=Color(0xFF45E0A8))
+                                        else Text("UPPER",fontSize=9.sp,fontWeight=FontWeight.Bold,color=Color(0xFF8DA6BC))
+                                    }
+                                    Spacer(Modifier.height(6.dp))
+                                    if(range.isEmpty()){
+                                        Text("No parts in this stage. Add a component in the builder.",fontSize=11.sp,color=Color(0xFF8DA6BC))
+                                    }else{
+                                        range.forEach{index->
+                                            val part=rocket.parts[index]
+                                            Row(
+                                                modifier=Modifier.fillMaxWidth().padding(vertical=2.dp).background(Color(0xFF0D1C2B),RoundedCornerShape(6.dp)).padding(horizontal=7.dp,vertical=5.dp),
+                                                verticalAlignment=Alignment.CenterVertically
+                                            ){
+                                                RocketPartThumbnail(part)
+                                                Text(part.title,fontSize=11.sp,fontWeight=FontWeight.SemiBold,color=Color(0xFFEAF3FC),modifier=Modifier.weight(1f).padding(start=7.dp))
+                                                Text("↑",fontSize=18.sp,color=if(index>range.first)Color(0xFF45D7FF) else Color(0xFF405366),modifier=Modifier.clickable(enabled=index>range.first){onMove(index,-1)}.padding(horizontal=7.dp))
+                                                Text("↓",fontSize=18.sp,color=if(index<range.last)Color(0xFF45D7FF) else Color(0xFF405366),modifier=Modifier.clickable(enabled=index<range.last){onMove(index,1)}.padding(horizontal=7.dp))
+                                                Text("×",fontSize=19.sp,color=Color(0xFFFF7189),modifier=Modifier.clickable{onRemove(index)}.padding(start=7.dp))
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            if(stageIndex>0){
+                                Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
+                                    Box(Modifier.weight(1f).height(1.dp).background(Color(0xFF2B4A63)))
+                                    Text(" SEPARATOR ",fontSize=9.sp,fontWeight=FontWeight.Black,color=Color(0xFFFFB74D),modifier=Modifier.padding(horizontal=6.dp))
+                                    Box(Modifier.weight(1f).height(1.dp).background(Color(0xFF2B4A63)))
+                                    TextButton(onClick={onRemove(range.first-1)},contentPadding=PaddingValues(horizontal=6.dp,vertical=1.dp)){
+                                        Text("REMOVE",fontSize=9.sp,color=Color(0xFFFF7189),fontWeight=FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton={
+            TextButton(onClick=onClose,colors=ButtonDefaults.textButtonColors(contentColor=Color(0xFF45D7FF))){
+                Text("DONE",fontWeight=FontWeight.Black)
+            }
+        },
+        dismissButton={
+            TextButton(onClick=onAddStage,colors=ButtonDefaults.textButtonColors(contentColor=Color(0xFF45D7FF))){
+                Text("+ ADD UPPER STAGE",fontWeight=FontWeight.Black,fontSize=10.sp)
+            }
+        },
+        containerColor=Color(0xFF0E1B2A)
+    )
+}
+
 @Composable
 private fun TutorialScreen(onFinish:()->Unit,onSkip:()->Unit){
     var page by rememberSaveable{mutableIntStateOf(0)}
