@@ -684,7 +684,7 @@ private fun RocketStackPreview(
                     val partH=88f*density*scale
                     val step=94f*density*scale
                     val stackHeight=count*partH+(count-1).coerceAtLeast(0)*6f*density*scale
-                    val topCenter=(size.height-stackHeight)/2f+partH/2f+verticalPan
+                    val topCenter=(size.height-stackHeight)/2f+partH/2f+latestVerticalPan.value
                     to=((change.position.y-topCenter)/step).roundToInt().coerceIn(0,count-1)
                 }
             },
