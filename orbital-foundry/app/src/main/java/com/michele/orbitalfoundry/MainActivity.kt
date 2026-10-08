@@ -835,9 +835,10 @@ private fun BuilderScreen(
             }
             Row(horizontalArrangement=Arrangement.spacedBy(6.dp),verticalAlignment=Alignment.CenterVertically,modifier=Modifier.fillMaxWidth().background(Color(0xFF0B1B2D)).padding(horizontal=7.dp,vertical=5.dp)){
                 Text("${rocket.parts.size} PARTS",color=Color(0xFF8DA6BC),fontSize=9.sp,fontWeight=FontWeight.Black,modifier=Modifier.weight(1f))
-                OutlinedButton(onClick={showStack=true},contentPadding=PaddingValues(horizontal=8.dp,vertical=7.dp),shape=RoundedCornerShape(7.dp),colors=ButtonDefaults.outlinedButtonColors(contentColor=Color(0xFF45D7FF))){Text("STACK",fontWeight=FontWeight.Black,fontSize=9.sp)}
-                OutlinedButton(onClick={showStageEditor=true},contentPadding=PaddingValues(horizontal=8.dp,vertical=7.dp),shape=RoundedCornerShape(7.dp),colors=ButtonDefaults.outlinedButtonColors(contentColor=Color(0xFF45D7FF))){Text("STAGES",fontWeight=FontWeight.Black,fontSize=9.sp)}
-                OutlinedButton(onClick=onClear,contentPadding=PaddingValues(horizontal=8.dp,vertical=7.dp),shape=RoundedCornerShape(7.dp),colors=ButtonDefaults.outlinedButtonColors(contentColor=Color(0xFF45D7FF))){Text("RESET",fontWeight=FontWeight.Black,fontSize=9.sp)}
+                OutlinedButton(onClick={showStack=true},contentPadding=PaddingValues(horizontal=7.dp,vertical=7.dp),shape=RoundedCornerShape(7.dp),colors=ButtonDefaults.outlinedButtonColors(contentColor=Color(0xFF45D7FF))){Text("STACK",fontWeight=FontWeight.Black,fontSize=9.sp)}
+                OutlinedButton(onClick={showStageEditor=true},contentPadding=PaddingValues(horizontal=7.dp,vertical=7.dp),shape=RoundedCornerShape(7.dp),colors=ButtonDefaults.outlinedButtonColors(contentColor=Color(0xFF45D7FF))){Text("STAGES",fontWeight=FontWeight.Black,fontSize=9.sp)}
+                OutlinedButton(onClick={showBlueprintLibrary=true},contentPadding=PaddingValues(horizontal=7.dp,vertical=7.dp),shape=RoundedCornerShape(7.dp),colors=ButtonDefaults.outlinedButtonColors(contentColor=Color(0xFF45D7FF))){Text("DESIGNS",fontWeight=FontWeight.Black,fontSize=9.sp)}
+                OutlinedButton(onClick=onClear,contentPadding=PaddingValues(horizontal=7.dp,vertical=7.dp),shape=RoundedCornerShape(7.dp),colors=ButtonDefaults.outlinedButtonColors(contentColor=Color(0xFF45D7FF))){Text("RESET",fontWeight=FontWeight.Black,fontSize=9.sp)}
             }
         }
         if(draggingPart!=null&&dragPosition!=null&&rootBounds!=null){
@@ -849,6 +850,16 @@ private fun BuilderScreen(
                     Text(draggingPart!!.title,fontSize=8.sp,lineHeight=9.sp,maxLines=2,color=Color(0xFFE7F2FC),fontWeight=FontWeight.Bold,textAlign=androidx.compose.ui.text.style.TextAlign.Center)
                 }
             }
+        }
+        if(showBlueprintLibrary){
+            BlueprintLibraryDialog(
+                rocket=rocket,
+                blueprints=blueprints,
+                onSave=onSaveBlueprint,
+                onLoad={name->onLoadBlueprint(name);showBlueprintLibrary=false},
+                onDelete=onDeleteBlueprint,
+                onClose={showBlueprintLibrary=false}
+            )
         }
         if(showStageEditor){
             StageEditorDialog(
@@ -888,6 +899,71 @@ private fun BuilderScreen(
         }
     }
 }
+@Composable
+private fun BlueprintLibraryDialog(
+    rocket:Rocket,
+    blueprints:Map<String,Rocket>,
+    onSave:(String)->Unit,
+    onLoad:(String)->Unit,
+    onDelete:(String)->Unit,
+    onClose:()->Unit
+){
+    var name by rememberSaveable{mutableStateOf("")}
+    AlertDialog(
+        onDismissRequest=onClose,
+        title={Text("BLUEPRINT LIBRARY",fontWeight=FontWeight.Black,color=Color(0xFFEAF3FC))},
+        text={
+            Column(Modifier.fillMaxWidth()){
+                Text("Save the current assembly by name, then load it into the builder whenever you need it. Saving over an existing name replaces that design.",fontSize=12.sp,color=Color(0xFF9DB2C7),lineHeight=16.sp)
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value=name,
+                    onValueChange={value->name=value.filter{it.isLetterOrDigit()||it==' '||it=='-'||it=='_'}.take(32)},
+                    modifier=Modifier.fillMaxWidth(),
+                    label={Text("Design name")},
+                    singleLine=true
+                )
+                Spacer(Modifier.height(6.dp))
+                Button(
+                    onClick={onSave(name.trim());name=""},
+                    enabled=name.trim().isNotEmpty()&&rocket.parts.isNotEmpty(),
+                    modifier=Modifier.fillMaxWidth(),
+                    colors=ButtonDefaults.buttonColors(containerColor=Color(0xFF45D7FF),contentColor=Color(0xFF061321))
+                ){Text("SAVE CURRENT DESIGN",fontWeight=FontWeight.Black)}
+                Spacer(Modifier.height(10.dp))
+                Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF2B4A63)))
+                Spacer(Modifier.height(6.dp))
+                if(blueprints.isEmpty()){
+                    Text("No saved designs yet.",fontSize=12.sp,color=Color(0xFF8DA6BC),modifier=Modifier.padding(vertical=8.dp))
+                }else{
+                    LazyColumn(Modifier.fillMaxWidth().heightIn(max=250.dp),verticalArrangement=Arrangement.spacedBy(5.dp)){
+                        items(blueprints.keys.sorted(),key={it}){blueprintName->
+                            val blueprint=blueprints.getValue(blueprintName)
+                            Row(
+                                Modifier.fillMaxWidth().background(Color(0xFF132638),RoundedCornerShape(7.dp)).padding(horizontal=8.dp,vertical=6.dp),
+                                verticalAlignment=Alignment.CenterVertically
+                            ){
+                                Column(Modifier.weight(1f)){
+                                    Text(blueprintName,fontSize=12.sp,fontWeight=FontWeight.Bold,color=Color(0xFFEAF3FC),maxLines=1)
+                                    Text("${blueprint.parts.size} parts · ${blueprint.parts.count{it==PartType.DECOUPLER}+1} stages",fontSize=10.sp,color=Color(0xFF8DA6BC))
+                                }
+                                TextButton(onClick={onLoad(blueprintName)},contentPadding=PaddingValues(horizontal=5.dp,vertical=2.dp)){
+                                    Text("LOAD",fontSize=10.sp,fontWeight=FontWeight.Black,color=Color(0xFF45D7FF))
+                                }
+                                TextButton(onClick={onDelete(blueprintName)},contentPadding=PaddingValues(horizontal=5.dp,vertical=2.dp)){
+                                    Text("×",fontSize=18.sp,fontWeight=FontWeight.Black,color=Color(0xFFFF7189))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton={TextButton(onClick=onClose,colors=ButtonDefaults.textButtonColors(contentColor=Color(0xFF45D7FF))){Text("DONE",fontWeight=FontWeight.Black)}},
+        containerColor=Color(0xFF0E1B2A)
+    )
+}
+
 @Composable
 private fun StageEditorDialog(
     rocket:Rocket,
