@@ -648,7 +648,10 @@ private fun RocketStackPreview(
     maxVisibleParts:Int=Int.MAX_VALUE
 ){
     val density=androidx.compose.ui.platform.LocalDensity.current.density
-    val interactionModifier=if(onReorder!=null||onPan!=null) Modifier.pointerInput(rocket.parts,onReorder,onPan,density,maxVisibleParts){
+    val latestVerticalPan=rememberUpdatedState(verticalPan)
+    val latestOnPan=rememberUpdatedState(onPan)
+    val latestOnReorder=rememberUpdatedState(onReorder)
+    val interactionModifier=if(onReorder!=null||onPan!=null) Modifier.pointerInput(rocket.parts,density,maxVisibleParts){
         var from=-1
         var to=-1
         var panMode=false
@@ -659,9 +662,9 @@ private fun RocketStackPreview(
                 val partH=88f*density*scale
                 val step=94f*density*scale
                 val stackHeight=count*partH+(count-1).coerceAtLeast(0)*6f*density*scale
-                val topCenter=(size.height-stackHeight)/2f+partH/2f+verticalPan
+                val topCenter=(size.height-stackHeight)/2f+partH/2f+latestVerticalPan.value
                 val row=((point.y-topCenter)/step).roundToInt()
-                if(onReorder!=null&&row in 0 until count&&abs(point.y-(topCenter+row*step))<=partH*.65f){
+                if(latestOnReorder.value!=null&&row in 0 until count&&abs(point.y-(topCenter+row*step))<=partH*.65f){
                     from=row
                     to=row
                     panMode=false
@@ -674,7 +677,7 @@ private fun RocketStackPreview(
             onDrag={change,delta->
                 change.consume()
                 if(panMode){
-                    onPan?.invoke(delta.y)
+                    latestOnPan.value?.invoke(delta.y)
                 }else if(rocket.parts.isNotEmpty()&&from>=0){
                     val count=rocket.parts.size
                     val scale=stackPreviewScale(size.height.toFloat(),count,density,maxVisibleParts)
@@ -690,7 +693,7 @@ private fun RocketStackPreview(
                 val destination=to
                 from=-1
                 to=-1
-                if(!panMode&&source>=0&&destination>=0&&source!=destination)onReorder?.invoke(source,destination-source)
+                if(!panMode&&source>=0&&destination>=0&&source!=destination)latestOnReorder.value?.invoke(source,destination-source)
                 panMode=false
             },
             onDragCancel={from=-1;to=-1;panMode=false}
