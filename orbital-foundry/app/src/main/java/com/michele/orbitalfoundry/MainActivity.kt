@@ -10,13 +10,11 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.foundation.border
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -77,20 +75,21 @@ data class Rocket(val parts:List<PartType>){
     val deltaV get():Double{
         var remaining=parts
         var dv=0.0
-        repeat(8){
-            if(remaining.isEmpty())return@repeat
+        while(remaining.isNotEmpty()){
             val separator=remaining.indexOfLast{it==PartType.DECOUPLER}
             val active=activeStageParts(remaining)
             val wet=remaining.sumOf{it.mass+it.fuel}
             val propellant=active.sumOf{it.fuel}
             val engines=active.filter{it.thrust>0.0}
-            val thrust=engines.sumOf{it.thrust}
-            val isp=if(thrust>0.0)engines.sumOf{it.thrust*it.ispSec}/thrust else 0.0
-            if(thrust>0.0&&isp>0.0&&propellant>0.0&&wet>propellant){
+            val totalThrust=engines.sumOf{it.thrust}
+            val isp=if(totalThrust>0.0)engines.sumOf{it.thrust*it.ispSec}/totalThrust else 0.0
+            if(totalThrust>0.0&&isp>0.0&&propellant>0.0&&wet>propellant){
                 dv+=(isp*G0/1000.0)*ln(wet/(wet-propellant))
             }
-            if(separator<0) return@repeat
-            remaining=remaining.take(separator)
+            if(separator<0)break
+            val next=remaining.take(separator)
+            if(next.size>=remaining.size)break
+            remaining=next
         }
         return dv
     }
@@ -140,9 +139,8 @@ fun OrbitalFoundryApp(showTutorialOnStart:Boolean,onTutorialComplete:()->Unit){
     MaterialTheme(colorScheme=darkColorScheme(background=Bg,surface=Panel,primary=Violet,onBackground=Ink,onSurface=Ink)){
         var screen by rememberSaveable{mutableStateOf(if(showTutorialOnStart)Screen.TUTORIAL else Screen.HOME)}
         var rocket by remember{mutableStateOf(Rocket(listOf(
-            PartType.NOSE,PartType.CAPSULE,PartType.TANK,PartType.ENGINE,
-            PartType.DECOUPLER,PartType.TANK,PartType.ENGINE,PartType.FIN,
-            PartType.PARACHUTE,PartType.HEATSHIELD
+            PartType.NOSE,PartType.CAPSULE,PartType.HEATSHIELD,PartType.PARACHUTE,
+            PartType.TANK,PartType.ENGINE,PartType.DECOUPLER,PartType.TANK,PartType.ENGINE,PartType.FIN
         )))}
         var sim by remember{mutableStateOf<SimState?>(null)}
         var missions by remember{mutableStateOf(setOf<String>())}
@@ -157,7 +155,8 @@ fun OrbitalFoundryApp(showTutorialOnStart:Boolean,onTutorialComplete:()->Unit){
             )
             Screen.BUILD->BuilderScreen(rocket,
                 {p->rocket=addPartInUsefulPosition(rocket,p)},
-                {p->val l=rocket.parts.toMutableList();val i=l.indexOfLast{it==p};if(i>=0)l.removeAt(i);rocket=rocket.copy(parts=l)},
+                {rocket=addUpperStage(rocket)},
+                {index->val l=rocket.parts.toMutableList();if(index in l.indices)l.removeAt(index);rocket=rocket.copy(parts=l)},
                 {index,delta->
                     val l=rocket.parts.toMutableList()
                     val destination=(index+delta).coerceIn(0,l.lastIndex)
@@ -182,18 +181,26 @@ fun OrbitalFoundryApp(showTutorialOnStart:Boolean,onTutorialComplete:()->Unit){
 private fun addPartInUsefulPosition(rocket:Rocket,part:PartType):Rocket{
     val list=rocket.parts.toMutableList()
     when(part){
-        PartType.DECOUPLER->{
-            val tankIndex=list.indexOfLast{it==PartType.TANK}
-            val engineIndex=list.indexOfLast{it==PartType.ENGINE}
-            val at=if(tankIndex>=0)tankIndex else if(engineIndex>=0)engineIndex else list.size
-            list.add(at,part)
-        }
+        PartType.DECOUPLER->{ return addUpperStage(rocket) }
         PartType.TANK,PartType.ENGINE,PartType.FIN->list.add(part)
         else->{
             val insertAt=list.indexOfFirst{it==PartType.DECOUPLER}.let{if(it<0)list.size else it}
             list.add(insertAt,part)
         }
     }
+    return rocket.copy(parts=list)
+}
+
+private fun addUpperStage(rocket:Rocket):Rocket{
+    val list=rocket.parts.toMutableList()
+    val firstTank=list.indexOfFirst{it==PartType.TANK}
+    val firstEngine=list.indexOfFirst{it==PartType.ENGINE}
+    val at=when{
+        firstTank>=0->firstTank
+        firstEngine>=0->firstEngine
+        else->list.size
+    }
+    list.addAll(at,listOf(PartType.TANK,PartType.ENGINE,PartType.DECOUPLER))
     return rocket.copy(parts=list)
 }
 
@@ -415,11 +422,52 @@ private fun DrawScope.drawRocketComponent(part:PartType,left:Float,top:Float,wid
             drawRect(Color(0xFF66D5FF),Offset(left,top+height*.10f),Size(width*.36f,height*.80f),style=Stroke(1.1f))
             drawRect(Color(0xFF66D5FF),Offset(left+width*.64f,top+height*.10f),Size(width*.36f,height*.80f),style=Stroke(1.1f))
         }
+        PartType.PROBE_CORE->{
+            drawRoundRect(metal,Offset(left+width*.16f,top+height*.10f),Size(width*.68f,height*.80f),CornerRadius(4f))
+            drawRoundRect(Color(0xFF101829),Offset(left+width*.26f,top+height*.22f),Size(width*.48f,height*.30f),CornerRadius(3f))
+            drawCircle(Color(0xFF69D9FF),height*.07f,Offset(cx,top+height*.37f))
+            for(i in 0..2)drawLine(Color(0xFF9CB2CD),Offset(left+width*.25f,top+height*(.65f+i*.07f)),Offset(left+width*.75f,top+height*(.65f+i*.07f)),1f)
+        }
+        PartType.PARACHUTE->{
+            drawRoundRect(metal,Offset(left+width*.33f,top+height*.52f),Size(width*.34f,height*.38f),CornerRadius(3f))
+            val canopy=Path().apply{moveTo(left+width*.10f,top+height*.43f);quadraticTo(cx,top-height*.05f,left+width*.90f,top+height*.43f);lineTo(left+width*.76f,top+height*.48f);quadraticTo(cx,top+height*.20f,left+width*.24f,top+height*.48f);close()}
+            drawPath(canopy,Brush.horizontalGradient(listOf(Color(0xFFB8234B),Color(0xFFFF7D90),Color(0xFFFFD9E2)),left,left+width))
+            drawPath(canopy,edge,style=Stroke(1.2f))
+            for(i in 0..4)drawLine(Color(0xFFE9F3FF),Offset(left+width*(.16f+i*.17f),top+height*.42f),Offset(cx,top+height*.57f),1f)
+        }
+        PartType.HEATSHIELD->{
+            val shield=Path().apply{moveTo(left+width*.08f,top+height*.15f);lineTo(left+width*.92f,top+height*.15f);lineTo(left+width*.78f,top+height*.65f);quadraticTo(cx,top+height*1.05f,left+width*.22f,top+height*.65f);close()}
+            drawPath(shield,Brush.verticalGradient(listOf(Color(0xFFFFD19A),Color(0xFFCF643F),Color(0xFF4A2929)),top,top+height))
+            drawPath(shield,edge,style=Stroke(1.5f))
+            for(i in 1..3)drawLine(Color(0xFFFFB17A),Offset(left+width*.22f,top+height*(.2f+i*.12f)),Offset(left+width*.78f,top+height*(.2f+i*.12f)),1.1f)
+        }
+        PartType.LANDING_LEGS->{
+            drawRoundRect(metal,Offset(cx-width*.16f,top+height*.08f),Size(width*.32f,height*.65f),CornerRadius(3f))
+            val a=Path().apply{moveTo(cx-width*.10f,top+height*.55f);lineTo(left-width*.04f,top+height*.95f);lineTo(left+width*.35f,top+height*.87f);lineTo(cx-width*.08f,top+height*.62f);close()}
+            val b=Path().apply{moveTo(cx+width*.10f,top+height*.55f);lineTo(left+width*1.04f,top+height*.95f);lineTo(left+width*.65f,top+height*.87f);lineTo(cx+width*.08f,top+height*.62f);close()}
+            drawPath(a,Color(0xFFB9C7D8));drawPath(b,Color(0xFFB9C7D8))
+            drawLine(Color.White,Offset(left-width*.04f,top+height*.95f),Offset(left+width*.35f,top+height*.87f),2f)
+            drawLine(Color.White,Offset(left+width*1.04f,top+height*.95f),Offset(left+width*.65f,top+height*.87f),2f)
+        }
+        PartType.RCS->{
+            drawRoundRect(metal,Offset(cx-width*.18f,top+height*.16f),Size(width*.36f,height*.68f),CornerRadius(3f))
+            drawRoundRect(Color(0xFFBAC9DB),Offset(left+width*.08f,top+height*.28f),Size(width*.84f,height*.18f),CornerRadius(3f))
+            drawRoundRect(Color(0xFFBAC9DB),Offset(left+width*.08f,top+height*.60f),Size(width*.84f,height*.18f),CornerRadius(3f))
+            drawCircle(Color(0xFF9A7BFF),height*.10f,Offset(left+width*.07f,top+height*.37f))
+            drawCircle(Color(0xFF9A7BFF),height*.10f,Offset(left+width*.93f,top+height*.69f))
+        }
+        PartType.DOCKING_PORT->{
+            drawRoundRect(metal,Offset(left+width*.26f,top+height*.10f),Size(width*.48f,height*.80f),CornerRadius(3f))
+            drawOval(Color(0xFF0B111D),Offset(left+width*.08f,top+height*.25f),Size(width*.84f,height*.52f))
+            drawOval(Brush.horizontalGradient(listOf(Color(0xFF60778D),Color(0xFFE1EDF8),Color(0xFF60778D)),left,left+width),Offset(left+width*.14f,top+height*.27f),Size(width*.72f,height*.48f),style=Stroke(3f))
+            drawOval(Color(0xFF0C1524),Offset(left+width*.30f,top+height*.37f),Size(width*.40f,height*.28f))
+            drawCircle(Color(0xFF45E0A8),height*.055f,Offset(cx,top+height*.51f))
+        }
     }
 }
 
 @Composable
-private fun BuilderScreen(rocket:Rocket,onAdd:(PartType)->Unit,onRemove:(PartType)->Unit,onMove:(Int,Int)->Unit,onClear:()->Unit,onBack:()->Unit,onLaunch:()->Unit){
+private fun BuilderScreen(rocket:Rocket,onAdd:(PartType)->Unit,onAddStage:()->Unit,onRemove:(Int)->Unit,onMove:(Int,Int)->Unit,onClear:()->Unit,onBack:()->Unit,onLaunch:()->Unit){
     Shell("Vehicle Lab","Tap parts to add · stack them into a launcher",onBack){
         Row(verticalAlignment=Alignment.Top,modifier=Modifier.fillMaxWidth()){
             Surface(color=Panel,shape=RoundedCornerShape(20.dp),modifier=Modifier.weight(1f).height(420.dp)){
@@ -446,10 +494,14 @@ private fun BuilderScreen(rocket:Rocket,onAdd:(PartType)->Unit,onRemove:(PartTyp
             }
         }
         Spacer(Modifier.height(10.dp))
-        Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()){
-            Text("PARTS "+rocket.parts.size,color=Muted,fontSize=12.sp,modifier=Modifier.weight(1f).align(Alignment.CenterVertically))
-            OutlinedButton(onClick=onClear){Text("RESET")}
-            Button(onClick=onLaunch,enabled=rocket.hasEngine&&rocket.hasCapsule){Text("LAUNCH")}
+        Row(horizontalArrangement=Arrangement.spacedBy(6.dp),modifier=Modifier.fillMaxWidth()){
+            Column(Modifier.weight(1f).align(Alignment.CenterVertically)){
+                Text("STACK · TOP TO BOTTOM",fontWeight=FontWeight.Black,fontSize=10.sp,color=Muted)
+                Text("${rocket.parts.size} parts · ${rocket.parts.count{it==PartType.DECOUPLER}+1} stages",fontSize=11.sp,color=Cyan)
+            }
+            OutlinedButton(onClick=onClear,contentPadding=PaddingValues(horizontal=9.dp,vertical=8.dp)){Text("RESET",fontSize=10.sp)}
+            OutlinedButton(onClick=onAddStage,contentPadding=PaddingValues(horizontal=9.dp,vertical=8.dp)){Text("+ STAGE",fontSize=10.sp)}
+            Button(onClick=onLaunch,enabled=rocket.hasEngine&&rocket.hasCapsule,contentPadding=PaddingValues(horizontal=12.dp,vertical=8.dp)){Text("LAUNCH",fontSize=10.sp)}
         }
         Spacer(Modifier.height(8.dp))
         Text("STACK",color=Muted,fontSize=11.sp,fontWeight=FontWeight.Black)
@@ -467,7 +519,7 @@ private fun BuilderScreen(rocket:Rocket,onAdd:(PartType)->Unit,onRemove:(PartTyp
                             Text("↑",fontSize=18.sp,color=Cyan,modifier=Modifier.clickable{onMove(originalIndex,1)}.padding(horizontal=5.dp))
                             Text("↓",fontSize=18.sp,color=Cyan,modifier=Modifier.clickable{onMove(originalIndex,-1)}.padding(horizontal=5.dp))
                         }
-                        Text("×",fontSize=20.sp,color=Red,modifier=Modifier.clickable{onRemove(p)}.padding(horizontal=5.dp))
+                        Text("×",fontSize=20.sp,color=Red,modifier=Modifier.clickable{onRemove(originalIndex)}.padding(horizontal=5.dp))
                     }
                 }
             }
@@ -738,7 +790,7 @@ private fun FlightScreen(sim:SimState,onTick:(SimState)->Unit,onMap:()->Unit,onB
 
 @Composable
 private fun SmallButton(text:String,onClick:()->Unit,modifier:Modifier=Modifier){
-    Button(onClick=onClick,modifier=modifier.height(44.dp),shape=RoundedCornerShape(12.dp),contentPadding=PaddingValues(horizontal=4.dp),colors=ButtonDefaults.buttonColors(containerColor=Panel2)){Text(text,fontSize=9.sp,fontWeight=FontWeight.Black)}
+    Button(onClick=onClick,modifier=modifier.heightIn(min=46.dp),shape=RoundedCornerShape(12.dp),contentPadding=PaddingValues(horizontal=5.dp,vertical=8.dp),colors=ButtonDefaults.buttonColors(containerColor=Panel2)){Text(text,fontSize=11.sp,lineHeight=13.sp,fontWeight=FontWeight.Black)}
 }
 
 @Composable
