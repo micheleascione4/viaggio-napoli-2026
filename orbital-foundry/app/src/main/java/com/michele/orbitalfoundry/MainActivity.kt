@@ -97,6 +97,14 @@ data class Rocket(val parts:List<PartType>){
         return dv
     }
 }
+fun starterRocket():Rocket=Rocket(listOf(
+    PartType.NOSE,PartType.CAPSULE,PartType.HEATSHIELD,PartType.PARACHUTE,
+    PartType.TANK,PartType.TANK,PartType.VACUUM_ENGINE,PartType.DECOUPLER,
+    PartType.TANK,PartType.TANK,PartType.VACUUM_ENGINE,PartType.DECOUPLER,
+    PartType.TANK,PartType.TANK,PartType.VACUUM_ENGINE,PartType.DECOUPLER,
+    PartType.TANK,PartType.TANK,PartType.ENGINE,PartType.ENGINE,PartType.ENGINE,PartType.FIN
+)
+
 
 data class SimState(
     val pos:V2=V2(0.0,EARTH_RADIUS_KM+0.02),
@@ -142,13 +150,7 @@ class MainActivity:ComponentActivity(){
 fun OrbitalFoundryApp(showTutorialOnStart:Boolean,onTutorialComplete:()->Unit){
     MaterialTheme(colorScheme=darkColorScheme(background=Bg,surface=Panel,primary=Violet,onBackground=Ink,onSurface=Ink)){
         var screen by rememberSaveable{mutableStateOf(if(showTutorialOnStart)Screen.TUTORIAL else Screen.HOME)}
-        var rocket by remember{mutableStateOf(Rocket(listOf(
-            PartType.NOSE,PartType.CAPSULE,PartType.HEATSHIELD,PartType.PARACHUTE,
-            PartType.TANK,PartType.TANK,PartType.VACUUM_ENGINE,PartType.DECOUPLER,
-            PartType.TANK,PartType.TANK,PartType.VACUUM_ENGINE,PartType.DECOUPLER,
-            PartType.TANK,PartType.TANK,PartType.VACUUM_ENGINE,PartType.DECOUPLER,
-            PartType.TANK,PartType.TANK,PartType.ENGINE,PartType.ENGINE,PartType.ENGINE,PartType.FIN
-        )))}
+        var rocket by remember{mutableStateOf(starterRocket())}
         var sim by remember{mutableStateOf<SimState?>(null)}
         var missions by remember{mutableStateOf(setOf<String>())}
         var career by remember{mutableStateOf(CareerState())}
