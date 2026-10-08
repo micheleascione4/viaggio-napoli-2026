@@ -295,6 +295,8 @@ fun OrbitalFoundryApp(
         LaunchedEffect(blueprints){onSaveBlueprints(blueprints)}
         LaunchedEffect(missions){onSaveMissions(missions)}
         LaunchedEffect(career){onSaveCareer(career)}
+        Column(Modifier.fillMaxSize().background(Bg)){
+            Box(Modifier.weight(1f).fillMaxWidth()){
         when(screen){
             Screen.HOME->HomeScreen(rocket,missions,career,
                 {sandboxMode=false;screen=Screen.BUILD},
@@ -330,6 +332,56 @@ fun OrbitalFoundryApp(
             )}
             Screen.MAP->{val s=sim;if(s!=null)MapScreen(s,earthTexture,marsTexture,{screen=Screen.FLIGHT})}
             Screen.TUTORIAL->TutorialScreen({onTutorialComplete();screen=Screen.HOME},{onTutorialComplete();screen=Screen.HOME})
+        }
+            }
+            if(screen==Screen.HOME||screen==Screen.BUILD||screen==Screen.MISSIONS){
+                MainNavigationBar(current=screen,mapAvailable=sim!=null){destination->
+                    when(destination){
+                        Screen.HOME->screen=Screen.HOME
+                        Screen.BUILD->screen=Screen.BUILD
+                        Screen.MISSIONS->screen=Screen.MISSIONS
+                        Screen.MAP->{if(sim!=null)screen=Screen.MAP}
+                        else->Unit
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+@Composable
+private fun MainNavigationBar(current:Screen,mapAvailable:Boolean,onNavigate:(Screen)->Unit){
+    NavigationBar(
+        containerColor=Color(0xFF081320),
+        contentColor=Ink,
+        tonalElevation=0.dp,
+        modifier=Modifier.fillMaxWidth()
+    ){
+        val destinations=listOf(
+            Triple(Screen.HOME,"HOME","⌂"),
+            Triple(Screen.BUILD,"BUILD","✳"),
+            Triple(Screen.MISSIONS,"CAREER","◈"),
+            Triple(Screen.MAP,"MAP","◎")
+        )
+        destinations.forEach{(destination,label,glyph)->
+            NavigationBarItem(
+                selected=current==destination,
+                onClick={onNavigate(destination)},
+                enabled=destination!=Screen.MAP||mapAvailable,
+                icon={Text(glyph,fontSize=19.sp,fontWeight=FontWeight.Bold)},
+                label={Text(label,fontSize=9.sp,fontWeight=FontWeight.Black,letterSpacing=.4.sp)},
+                alwaysShowLabel=true,
+                colors=NavigationBarItemDefaults.colors(
+                    selectedIconColor=Cyan,
+                    selectedTextColor=Cyan,
+                    indicatorColor=Color(0xFF15354B),
+                    unselectedIconColor=Muted,
+                    unselectedTextColor=Muted,
+                    disabledIconColor=Color(0xFF39495B),
+                    disabledTextColor=Color(0xFF39495B)
+                )
+            )
         }
     }
 }
