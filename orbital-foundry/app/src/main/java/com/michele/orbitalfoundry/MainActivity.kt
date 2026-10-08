@@ -349,13 +349,17 @@ private fun insertPartAt(rocket:Rocket,part:PartType,index:Int):Rocket{
 private fun addUpperStage(rocket:Rocket):Rocket{
     val list=rocket.parts.toMutableList()
     val firstTank=list.indexOfFirst{it==PartType.TANK}
-    val firstEngine=list.indexOfFirst{it==PartType.ENGINE}
+    val firstEngine=list.indexOfFirst{it==PartType.ENGINE||it==PartType.VACUUM_ENGINE||it==PartType.HEAVY_ENGINE||it==PartType.ION_ENGINE}
     val at=when{
         firstTank>=0->firstTank
         firstEngine>=0->firstEngine
         else->list.size
-    }
-    list.addAll(at,listOf(PartType.TANK,PartType.TANK,PartType.VACUUM_ENGINE,PartType.DECOUPLER))
+    }.coerceIn(0,list.size)
+    // A separator is needed only when an existing stack will remain below the new upper stage.
+    // On an empty/new vehicle, keep the first stage active instead of creating an empty active stage.
+    val modules=listOf(PartType.TANK,PartType.TANK,PartType.VACUUM_ENGINE)
+    val upperStage=if(at<list.size)modules+PartType.DECOUPLER else modules
+    list.addAll(at,upperStage)
     return rocket.copy(parts=list)
 }
 
@@ -547,10 +551,10 @@ private fun RocketStackPreview(
     }else Modifier
     Canvas(modifier.fillMaxSize().then(reorderModifier)){
         drawRect(Brush.verticalGradient(listOf(Color(0xFF10263C),Color(0xFF0B1B2D),Color(0xFF071321))),size=Size(size.width,size.height))
-        val grid=42f
-        for(x in 0..(size.width/grid).toInt())drawLine(Color(0x223C759F),Offset(x*grid,0f),Offset(x*grid,size.height),1f)
-        for(y in 0..(size.height/grid).toInt())drawLine(Color(0x223C759F),Offset(0f,y*grid),Offset(size.width,y*grid),1f)
-        drawLine(Color(0x3345D7FF),Offset(size.width*.5f,0f),Offset(size.width*.5f,size.height),1f)
+        val grid=42f*density
+        for(x in 0..(size.width/grid).toInt())drawLine(Color(0x223C759F),Offset(x*grid,0f),Offset(x*grid,size.height),max(1f,density*.35f))
+        for(y in 0..(size.height/grid).toInt())drawLine(Color(0x223C759F),Offset(0f,y*grid),Offset(size.width,y*grid),max(1f,density*.35f))
+        drawLine(Color(0x3345D7FF),Offset(size.width*.5f,0f),Offset(size.width*.5f,size.height),max(1f,density*.35f))
         val count=rocket.parts.size
         val scale=stackPreviewScale(size.height,count,density)
         val partH=88f*density*scale
@@ -778,10 +782,10 @@ private fun BuilderScreen(
                         Text("MASS",fontSize=8.sp,color=Color(0xFF8DA6BC),fontWeight=FontWeight.Black)
                         Text("%.1f t".format(rocket.dryMass+rocket.fuel),fontSize=12.sp,fontWeight=FontWeight.Black,color=Color(0xFFF1F7FF))
                         Spacer(Modifier.height(4.dp))
-                        Text("T / W",fontSize=8.sp,color=Color(0xFF60758A),fontWeight=FontWeight.Black)
+                        Text("T / W",fontSize=8.sp,color=Color(0xFF8DA6BC),fontWeight=FontWeight.Black)
                         Text("%.2f".format(analyzeVehicle(rocket).twr),fontSize=12.sp,fontWeight=FontWeight.Black,color=if(analyzeVehicle(rocket).twr>=1.2)Color(0xFF45E0A8) else Color(0xFFFFB74D))
                         Spacer(Modifier.height(4.dp))
-                        Text("ΔV",fontSize=8.sp,color=Color(0xFF60758A),fontWeight=FontWeight.Black)
+                        Text("ΔV",fontSize=8.sp,color=Color(0xFF8DA6BC),fontWeight=FontWeight.Black)
                         Text("%.1f".format(rocket.deltaV),fontSize=12.sp,fontWeight=FontWeight.Black,color=Color(0xFF45D7FF))
                     }
                 }
