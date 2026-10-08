@@ -1102,70 +1102,124 @@ private fun FlightScreen(
 
 @Composable
 private fun SmallButton(text:String,onClick:()->Unit,modifier:Modifier=Modifier,enabled:Boolean=true){
-    Button(onClick=onClick,enabled=enabled,modifier=modifier.heightIn(min=44.dp),shape=RoundedCornerShape(11.dp),contentPadding=PaddingValues(horizontal=5.dp,vertical=7.dp),colors=ButtonDefaults.buttonColors(containerColor=Panel2,disabledContainerColor=Color(0xFF10131D))){Text(text,fontSize=10.sp,lineHeight=12.sp,fontWeight=FontWeight.Black)}
+    Button(
+        onClick=onClick,enabled=enabled,modifier=modifier.heightIn(min=40.dp),
+        shape=RoundedCornerShape(10.dp),contentPadding=PaddingValues(horizontal=4.dp,vertical=6.dp),
+        colors=ButtonDefaults.buttonColors(
+            containerColor=Color(0xAA142236),
+            contentColor=Color(0xFFF4F7FF),
+            disabledContainerColor=Color(0x55101A28),
+            disabledContentColor=Color(0xFF7F8CA0)
+        )
+    ){Text(text,fontSize=10.sp,lineHeight=12.sp,fontWeight=FontWeight.Black)}
 }
 
 @Composable
-private fun MapScreen(sim:SimState,onBack:()->Unit){
-    Shell("Navigation Map","Earth-centred trajectories · logarithmic system map",onBack){
-        Surface(color=Panel,shape=RoundedCornerShape(22.dp),modifier=Modifier.fillMaxWidth().weight(1f)){
-            Canvas(Modifier.fillMaxSize().padding(10.dp)){
-                val c=Offset(size.width/2,size.height/2)
-                val mapR=min(size.width,size.height)*.44f
-                drawRect(Brush.verticalGradient(listOf(Color(0xFF060A17),Color(0xFF0A1427))),size=Size(size.width,size.height))
-                repeat(60){i->drawCircle(Color.White,if(i%7==0)1.5f else .7f,Offset(((i*71)%997)/997f*size.width,((i*37)%991)/991f*size.height),alpha=.45f)}
-                fun plotRadius(radiusKm:Double):Float{
-                    val earthR=EARTH_RADIUS_KM
-                    return if(radiusKm<=earthR*4.0)(15.0+(radiusKm-earthR).coerceAtLeast(0.0)/earthR*12.0).toFloat()
-                    else (27.0+ln(radiusKm/(earthR*4.0))*25.0).toFloat().coerceAtMost(mapR)
-                }
-                listOf(1.03,1.10,1.20,1.5,2.0,3.0).forEach{factor->
-                    drawCircle(Color(0x332F4B71),plotRadius(EARTH_RADIUS_KM*factor),c,style=Stroke(width=1f))
-                }
-                val earthRadius=15f
-                drawCircle(Brush.radialGradient(listOf(Color(0xFF56B6E9),Color(0xFF18528A),Color(0xFF081529)),Offset(c.x-4f,c.y-5f),earthRadius*1.8f),earthRadius,c)
-                drawCircle(Color(0x994BC3FF),earthRadius,c,style=Stroke(width=1.5f))
-                val moonAngle=2.0*PI*sim.time/(27.321661*86400.0)
-                val moon=V2(cos(moonAngle)*MOON_ORBIT_KM,sin(moonAngle)*MOON_ORBIT_KM)
-                val moonR=plotRadius(MOON_ORBIT_KM)
-                val moonSpot=Offset(c.x+cos(moonAngle).toFloat()*moonR,c.y-sin(moonAngle).toFloat()*moonR)
-                drawCircle(Color(0x339EA8BD),10f,moonSpot)
-                drawCircle(Brush.radialGradient(listOf(Color(0xFFE6E8EE),Color(0xFF858C9D),Color(0xFF3D4555)),Offset(moonSpot.x-2f,moonSpot.y-2f),12f),6f,moonSpot)
-                val marsR=plotRadius(227_940_000.0)
-                drawCircle(Color(0x558A4A3C),8f,Offset(c.x+marsR,c.y),style=Stroke(width=2f))
-                // Actual path points, compressed logarithmically so LEO remains visible beside lunar distance.
-                if(sim.trail.size>1){
-                    val path=Path()
-                    sim.trail.takeLast(500).forEachIndexed{idx,p->
-                        val radius=p.mag().coerceAtLeast(1.0)
-                        val angle=atan2(p.y,p.x)
-                        val rp=plotRadius(radius)
-                        val q=Offset(c.x+cos(angle).toFloat()*rp,c.y-sin(angle).toFloat()*rp)
-                        if(idx==0)path.moveTo(q.x,q.y)else path.lineTo(q.x,q.y)
-                    }
-                    drawPath(path,color=Color(0x5545D7FF),style=Stroke(width=5f))
-                    drawPath(path,color=Cyan,style=Stroke(width=2f))
-                }
-                val currentAngle=atan2(sim.pos.y,sim.pos.x)
-                val currentR=plotRadius(sim.pos.mag())
-                drawCircle(Color.White,3.5f,Offset(c.x+cos(currentAngle).toFloat()*currentR,c.y-sin(currentAngle).toFloat()*currentR))
-                if(sim.targetPos!=null&&sim.docking){
-                    val targetAngle=atan2(sim.targetPos.y,sim.targetPos.x)
-                    val targetR=plotRadius(sim.targetPos.mag())
-                    drawCircle(Cyan,5f,Offset(c.x+cos(targetAngle).toFloat()*targetR,c.y-sin(targetAngle).toFloat()*targetR),style=Stroke(width=2f))
+private fun MapScreen(sim:SimState,earthTexture:ImageBitmap?,marsTexture:ImageBitmap?,onBack:()->Unit){
+    var cameraZoom by rememberSaveable{mutableFloatStateOf(.62f)}
+    var cameraPan by remember{mutableStateOf(Offset.Zero)}
+    Box(Modifier.fillMaxSize().background(Color(0xFF040713))){
+        Canvas(
+            Modifier.fillMaxSize().pointerInput(Unit){
+                detectTransformGestures{_,pan,zoom,_->
+                    cameraZoom=(cameraZoom*zoom).coerceIn(.12f,4.0f)
+                    cameraPan=Offset(
+                        (cameraPan.x+pan.x).coerceIn(-size.width*.65f,size.width*.65f),
+                        (cameraPan.y+pan.y).coerceIn(-size.height*.60f,size.height*.60f)
+                    )
                 }
             }
+        ){
+            val small=min(size.width,size.height)
+            val center=Offset(size.width*.5f+cameraPan.x,size.height*.52f+cameraPan.y)
+            val mapLimit=small*.44f
+            drawRect(Brush.verticalGradient(listOf(Color(0xFF050A18),Color(0xFF0B1B31),Color(0xFF040711))),size=Size(size.width,size.height))
+            drawOval(Brush.radialGradient(listOf(Color(0x1A536EB0),Color.Transparent),Offset(size.width*.69f,size.height*.24f),small*.75f),Offset(size.width*.1f,size.height*.01f),Size(size.width*.85f,size.height*.75f))
+            repeat(130){i->
+                val sx=((i*71+11)%997)/997f*size.width
+                val sy=((i*37+23)%991)/991f*size.height
+                drawCircle(if(i%13==0)Color(0xFFB5E9FF) else Color.White,if(i%7==0)1.5f else .65f,Offset(sx,sy),alpha=if(i%5==0).72f else .28f)
+            }
+            fun baseRadius(radiusKm:Double):Float{
+                val er=EARTH_RADIUS_KM
+                return if(radiusKm<=er*4.0)
+                    (16.0+(radiusKm-er).coerceAtLeast(0.0)/er*12.0).toFloat()
+                else
+                    (28.0+ln(radiusKm/(er*4.0))*24.0).toFloat()
+            }
+            fun plotRadius(radiusKm:Double)=(baseRadius(radiusKm)*cameraZoom).coerceAtMost(mapLimit*1.6f)
+            // Reference orbits make the navigation scale readable while still fitting the inner system.
+            listOf(EARTH_RADIUS_KM+200.0,EARTH_RADIUS_KM+35786.0,MOON_ORBIT_KM).forEachIndexed{idx,r->
+                drawCircle(Color(if(idx==2)0x445A7BA5 else 0x332F4B71),plotRadius(r),center,style=Stroke(width=1f))
+            }
+            val earthR=(15f*cameraZoom).coerceIn(2f,small*.16f)
+            drawCircle(Brush.radialGradient(listOf(Color(0x6649BFFF),Color.Transparent),center,earthR*2.1f),earthR*2.1f,center)
+            drawTexturedPlanet(earthTexture,center,earthR,listOf(Color(0xFF448FC7),Color(0xFF1D4E80),Color(0xFF071326)))
+            val moonAngle=2.0*PI*sim.time/(27.321661*86400.0)
+            val moonR=plotRadius(MOON_ORBIT_KM)
+            val moonSpot=Offset(center.x+cos(moonAngle).toFloat()*moonR,center.y-sin(moonAngle).toFloat()*moonR)
+            drawCircle(Color(0x339EA8BD),max(4f,6f*cameraZoom),moonSpot)
+            drawTexturedPlanet(null,moonSpot,max(2f,4.5f*cameraZoom),listOf(Color(0xFFF0F0EC),Color(0xFF969EAC),Color(0xFF343D4B)))
+            val marsDistance=227_940_000.0
+            val marsAngle=0.8
+            val marsR=plotRadius(marsDistance)
+            val marsSpot=Offset(center.x+cos(marsAngle).toFloat()*marsR,center.y-sin(marsAngle).toFloat()*marsR)
+            drawCircle(Color(0x44D36B4D),max(4f,9f*cameraZoom),marsSpot)
+            drawTexturedPlanet(marsTexture,marsSpot,max(3f,7f*cameraZoom),listOf(Color(0xFFD58B61),Color(0xFF8C4637),Color(0xFF3B1E20)))
+
+            if(sim.trail.size>1){
+                val path=Path()
+                sim.trail.takeLast(600).forEachIndexed{idx,p->
+                    val radius=p.mag().coerceAtLeast(1.0)
+                    val angle=atan2(p.y,p.x)
+                    val rp=plotRadius(radius)
+                    val q=Offset(center.x+cos(angle).toFloat()*rp,center.y-sin(angle).toFloat()*rp)
+                    if(idx==0)path.moveTo(q.x,q.y)else path.lineTo(q.x,q.y)
+                }
+                drawPath(path,color=Color(0x9955CFFF),style=Stroke(width=5f))
+                drawPath(path,color=Cyan,style=Stroke(width=2f))
+            }
+            val currentAngle=atan2(sim.pos.y,sim.pos.x)
+            val currentR=plotRadius(sim.pos.mag())
+            val vehicle=Offset(center.x+cos(currentAngle).toFloat()*currentR,center.y-sin(currentAngle).toFloat()*currentR)
+            drawCircle(Color.White,4.2f,vehicle)
+            drawCircle(Cyan,10f,vehicle,style=Stroke(width=1.5f))
+            if(sim.targetPos!=null&&sim.docking){
+                val a=atan2(sim.targetPos.y,sim.targetPos.x)
+                val r=plotRadius(sim.targetPos.mag())
+                drawCircle(Color(0xFF45D7FF),5f,Offset(center.x+cos(a).toFloat()*r,center.y-sin(a).toFloat()*r),style=Stroke(width=2f))
+            }
         }
-        Spacer(Modifier.height(8.dp))
-        Surface(color=Panel,shape=RoundedCornerShape(18.dp)){
-            Column(Modifier.padding(14.dp)){
-                Text("NAVIGATION COMPUTER",fontWeight=FontWeight.Black,fontSize=12.sp,color=Muted)
-                Text("Earth · Moon · Mars",fontWeight=FontWeight.Bold,fontSize=18.sp,modifier=Modifier.padding(top=3.dp))
-                Text("Distances in the system view are compressed logarithmically; telemetry and orbit calculations use real kilometre scales.",color=Muted,fontSize=12.sp,lineHeight=17.sp,modifier=Modifier.padding(top=4.dp))
+        Column(Modifier.align(Alignment.TopCenter).fillMaxWidth().padding(8.dp)){
+            Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.fillMaxWidth().background(Color(0xAA071320),RoundedCornerShape(14.dp)).padding(horizontal=6.dp,vertical=4.dp)){
+                Text("‹",fontSize=30.sp,modifier=Modifier.clickable{onBack()}.padding(horizontal=8.dp),color=Ink)
+                Column(Modifier.weight(1f)){
+                    Text("SOLAR SYSTEM",fontWeight=FontWeight.Black,fontSize=14.sp)
+                    Text("Pinch to zoom · drag to explore",color=Muted,fontSize=10.sp)
+                }
+                TextButton(onClick={cameraZoom=.48f;cameraPan=Offset.Zero},contentPadding=PaddingValues(horizontal=6.dp)){Text("UNIVERSE",fontSize=9.sp,fontWeight=FontWeight.Black)}
+                TextButton(onClick={cameraZoom=3.2f;cameraPan=Offset.Zero},contentPadding=PaddingValues(horizontal=6.dp)){Text("EARTH",fontSize=9.sp,fontWeight=FontWeight.Black)}
+            }
+            Row(horizontalArrangement=Arrangement.spacedBy(6.dp),modifier=Modifier.padding(start=8.dp,top=6.dp)){
+                Text("EARTH",fontSize=9.sp,color=Color(0xFF8ED9FF),fontWeight=FontWeight.Black)
+                Text("·",fontSize=9.sp,color=Muted)
+                Text("MOON",fontSize=9.sp,color=Color(0xFFE2E5EC),fontWeight=FontWeight.Black)
+                Text("·",fontSize=9.sp,color=Muted)
+                Text("MARS",fontSize=9.sp,color=Color(0xFFFFA07B),fontWeight=FontWeight.Black)
+            }
+        }
+        Surface(color=Color(0xAA081321),shape=RoundedCornerShape(12.dp),modifier=Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(8.dp)){
+            Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.padding(horizontal=12.dp,vertical=8.dp)){
+                Column(Modifier.weight(1f)){
+                    Text(if(cameraZoom<.8f)"SYSTEM VIEW" else if(cameraZoom<2f)"PLANETARY VIEW" else "EARTH DETAIL",fontSize=10.sp,color=Cyan,fontWeight=FontWeight.Black)
+                    Text("Zoom ${"%.2f".format(cameraZoom)}× · Orbit values remain in real units",fontSize=10.sp,color=Muted)
+                }
+                SmallButton("CENTER",{cameraPan=Offset.Zero},Modifier.width(78.dp))
             }
         }
     }
 }
+
 private fun worldToScreen(p:V2,rocket:V2,center:Offset,scale:Float):Offset{
     return Offset(center.x+((p.x-rocket.x)*scale).toFloat(),center.y-((p.y-rocket.y)*scale).toFloat())
 }
