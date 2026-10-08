@@ -377,15 +377,15 @@ private fun HomeScreen(
     onBuild:()->Unit,onLaunch:()->Unit,onMissions:()->Unit,onTutorial:()->Unit,
     onSandbox:()->Unit,onDocking:()->Unit
 ){
-    val page=Color(0xFFE8F0F7)
-    val card=Color(0xFFFAFCFE)
-    val dark=Color(0xFF1C3044)
-    val secondary=Color(0xFF63778B)
-    val blue=Color(0xFF3479B5)
+    val page=Color(0xFF07111F)
+    val card=Color(0xFF0E1B2A)
+    val dark=Color(0xFFEAF3FC)
+    val secondary=Color(0xFF8DA6BC)
+    val blue=Color(0xFF45D7FF)
     Column(Modifier.fillMaxSize().background(page).verticalScroll(rememberScrollState()).padding(horizontal=15.dp,vertical=10.dp)){
         Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.fillMaxWidth()){
             Column(Modifier.weight(1f)){
-                Text("ORBITAL FOUNDRY",fontSize=23.sp,fontWeight=FontWeight.Black,lineHeight=27.sp,letterSpacing=(-.5).sp,color=dark)
+                Text("ORVITARY",fontSize=25.sp,fontWeight=FontWeight.Black,lineHeight=29.sp,letterSpacing=1.1.sp,color=dark)
                 Text("BUILD  ·  LAUNCH  ·  EXPLORE",color=blue,fontSize=10.sp,fontWeight=FontWeight.Bold,letterSpacing=1.2.sp)
             }
             TextButton(onClick=onTutorial,contentPadding=PaddingValues(horizontal=10.dp,vertical=6.dp),colors=ButtonDefaults.textButtonColors(contentColor=dark)){
@@ -393,15 +393,15 @@ private fun HomeScreen(
             }
         }
         Spacer(Modifier.height(9.dp))
-        Box(Modifier.fillMaxWidth().height(218.dp).background(Color(0xFF4C83B8),RoundedCornerShape(10.dp))){
+        Box(Modifier.fillMaxWidth().height(218.dp).background(Color(0xFF0B1B2D),RoundedCornerShape(10.dp))){
             RocketStackPreview(rocket,Modifier.fillMaxSize())
-            Surface(color=Color(0xE8EDF4FA),shape=RoundedCornerShape(bottomEnd=8.dp),modifier=Modifier.align(Alignment.TopStart)){
+            Surface(color=Color(0xEE14283B),shape=RoundedCornerShape(bottomEnd=8.dp),modifier=Modifier.align(Alignment.TopStart)){
                 Column(Modifier.padding(horizontal=10.dp,vertical=7.dp)){
                     Text("ACTIVE VEHICLE",fontSize=9.sp,color=blue,fontWeight=FontWeight.Black,letterSpacing=.9.sp)
                     Text(if(rocket.hasEngine&&rocket.hasCapsule)"READY TO LAUNCH" else "INCOMPLETE ROCKET",fontSize=13.sp,fontWeight=FontWeight.Black,color=dark)
                 }
             }
-            Row(horizontalArrangement=Arrangement.SpaceEvenly,verticalAlignment=Alignment.CenterVertically,modifier=Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(Color(0xEAF4F8FC)).padding(horizontal=7.dp,vertical=7.dp)){
+            Row(horizontalArrangement=Arrangement.SpaceEvenly,verticalAlignment=Alignment.CenterVertically,modifier=Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(Color(0xEE0E1B2A)).padding(horizontal=7.dp,vertical=7.dp)){
                 Column(horizontalAlignment=Alignment.CenterHorizontally,modifier=Modifier.weight(1f)){
                     Text("MASS",fontSize=9.sp,color=secondary,fontWeight=FontWeight.Bold)
                     Text("%.1f t".format(rocket.dryMass+rocket.fuel),fontSize=12.sp,fontWeight=FontWeight.Black,color=dark)
@@ -417,7 +417,7 @@ private fun HomeScreen(
             }
         }
         Spacer(Modifier.height(10.dp))
-        Button(onClick=onBuild,modifier=Modifier.fillMaxWidth().height(49.dp),shape=RoundedCornerShape(8.dp),contentPadding=PaddingValues(10.dp),colors=ButtonDefaults.buttonColors(containerColor=blue,contentColor=Color.White)){
+        Button(onClick=onBuild,modifier=Modifier.fillMaxWidth().height(49.dp),shape=RoundedCornerShape(8.dp),contentPadding=PaddingValues(10.dp),colors=ButtonDefaults.buttonColors(containerColor=blue,contentColor=Color(0xFF061321))){
             Text("BUILD ROCKET",fontWeight=FontWeight.Black,letterSpacing=.7.sp)
         }
         Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()){
@@ -436,7 +436,7 @@ private fun HomeScreen(
                     Text("€${career.funds/1000}K   ·   ${career.science} SCI",fontSize=13.sp,fontWeight=FontWeight.Bold,color=dark)
                     Text("${career.unlocked.size} technologies unlocked",fontSize=10.sp,color=secondary)
                 }
-                Button(onClick=onMissions,shape=RoundedCornerShape(7.dp),contentPadding=PaddingValues(horizontal=10.dp,vertical=8.dp),colors=ButtonDefaults.buttonColors(containerColor=Color(0xFFD6E6F4),contentColor=dark)){
+                Button(onClick=onMissions,shape=RoundedCornerShape(7.dp),contentPadding=PaddingValues(horizontal=10.dp,vertical=8.dp),colors=ButtonDefaults.buttonColors(containerColor=Color(0xFF18344B),contentColor=dark)){
                     Text("TECH TREE  →",fontSize=10.sp,fontWeight=FontWeight.Black)
                 }
             }
